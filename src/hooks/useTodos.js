@@ -33,9 +33,24 @@ function buildRow(payload) {
     category: payload.category,
     priority: payload.priority,
     due_date: payload.due_date || null,
+    due_time: payload.due_time || null,
     completed: false,
     pinned: !!payload.pinned,
   }
+}
+
+function stripUnknownColumns(row, err) {
+  if (!err?.message) return row
+  let next = { ...row }
+  if (/due_time|column/i.test(err.message)) {
+    const { due_time, ...rest } = next
+    next = rest
+  }
+  if (/pinned|column/i.test(err.message)) {
+    const { pinned, ...rest } = next
+    next = rest
+  }
+  return next
 }
 
 export function useTodos() {
@@ -114,11 +129,11 @@ export function useTodos() {
       .select()
       .single()
 
-    if (err && /pinned|column/i.test(err.message)) {
-      const { pinned, ...withoutPin } = row
+    if (err && /pinned|due_time|column/i.test(err.message)) {
+      const slim = stripUnknownColumns(row, err)
       const retry = await supabase
         .from('todos')
-        .insert({ ...withoutPin, user_id: userId })
+        .insert({ ...slim, user_id: userId })
         .select()
         .single()
       if (retry.error) throw retry.error
@@ -200,6 +215,7 @@ export function useTodos() {
       category: todo.category,
       priority: todo.priority,
       due_date: todo.due_date,
+      due_time: todo.due_time,
       pinned: false,
     })
 

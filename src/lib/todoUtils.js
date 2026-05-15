@@ -1,22 +1,20 @@
 import { getPriority } from './constants'
+import { isSameCalendarDay, parseDueDateTime } from './dateTime'
 
 const priorityOrder = { hoch: 0, mittel: 1, niedrig: 2 }
 
-/** Überfällig (nur offene Aufgaben mit Datum in der Vergangenheit) */
+/** Überfällig (mit optionaler Uhrzeit) */
 export function isOverdue(todo) {
   if (!todo.due_date || todo.completed) return false
-  const due = new Date(todo.due_date)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  due.setHours(0, 0, 0, 0)
-  return due < today
+  const due = parseDueDateTime(todo)
+  return due ? due.getTime() < Date.now() : false
 }
 
-/** Fällig heute */
+/** Fällig heute (Kalendertag) */
 export function isDueToday(todo) {
   if (!todo.due_date || todo.completed) return false
-  const due = new Date(todo.due_date).toDateString()
-  return due === new Date().toDateString()
+  const due = parseDueDateTime(todo)
+  return due ? isSameCalendarDay(due, new Date()) : false
 }
 
 /** Fällig diese Woche (Mo–So) */

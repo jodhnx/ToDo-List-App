@@ -1,9 +1,25 @@
 import { getAiApiKey } from './settings'
+import { isDueToday, isOverdue } from './todoUtils'
+import { formatDueLabel } from './dateTime'
 
 const SYSTEM = `Du bist ein hilfreicher Produktivitäts-Assistent für eine deutsche To-Do-App.
 Antworte immer auf Deutsch, kurz und präzise.
 Kategorien: schule, gym, arbeit, privat.
 Prioritäten: niedrig, mittel, hoch.`
+
+const priorityOrder = { hoch: 0, mittel: 1, niedrig: 2 }
+
+function sortByUrgency(list) {
+  return [...list].sort((a, b) => {
+    const oa = isOverdue(a) ? 0 : 1
+    const ob = isOverdue(b) ? 0 : 1
+    if (oa !== ob) return oa - ob
+    const ta = isDueToday(a) ? 0 : 1
+    const tb = isDueToday(b) ? 0 : 1
+    if (ta !== tb) return ta - tb
+    return (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1)
+  })
+}
 
 /** Regelbasierte Vorschläge ohne API */
 function smartSuggestLocal(title, description = '') {
@@ -11,6 +27,7 @@ function smartSuggestLocal(title, description = '') {
   let category = 'privat'
   let priority = 'mittel'
   let due_date = null
+  let due_time = null
 
   if (/mathe|physik|chemie|bio|schule|uni|vorlesung|hausaufgabe|klausur|prüfung|referat/.test(text)) {
     category = 'schule'
@@ -33,7 +50,19 @@ function smartSuggestLocal(title, description = '') {
     due_date = d.toISOString().slice(0, 10)
   }
 
-  return { category, priority, ...(due_date ? { due_date } : {}) }
+  const timeMatch = text.match(/(\d{1,2})[.:](\d{2})\s*uhr?|\bum\s*(\d{1,2})\b/)
+  if (timeMatch) {
+    const h = String(timeMatch[1] || timeMatch[3]).padStart(2, '0')
+    const m = String(timeMatch[2] || '00').padStart(2, '0')
+    due_time = `${h}:${m}`
+  }
+
+  return {
+    category,
+    priority,
+    ...(due_date ? { due_date } : {}),
+    ...(due_time ? { due_time, useTime: true } : {}),
+  }
 }
 
 async function callOpenAI(messages, maxTokens = 400) {
@@ -63,7 +92,6 @@ async function callOpenAI(messages, maxTokens = 400) {
   return data.choices?.[0]?.message?.content?.trim() || ''
 }
 
-/** Kategorie & Priorität aus Titel vorschlagen */
 export async function suggestTaskMeta(title, description = '') {
   if (!title.trim()) return smartSuggestLocal('', description)
 
@@ -75,11 +103,11 @@ export async function suggestTaskMeta(title, description = '') {
       {
         role: 'user',
         content: `Analysiere diese Aufgabe und antworte NUR als JSON:
-{"category":"schule|gym|arbeit|privat","priority":"niedrig|mittel|hoch","due_date":"YYYY-MM-DD oder null"}
+{"category":"schule|gym|arbeit|privat","priority":"niedrig|mittel|hoch","due_date":"YYYY-MM-DD oder null","due_time":"HH:MM oder null"}
 Titel: ${title}
 Beschreibung: ${description || '-'}`,
       },
-    ], 80)
+    ], 100)
 
     const json = JSON.parse(raw.replace(/```json?|```/g, '').trim())
     if (['schule', 'gym', 'arbeit', 'privat'].includes(json.category)) {
@@ -91,6 +119,10 @@ Beschreibung: ${description || '-'}`,
         const d = String(json.due_date).slice(0, 10)
         if (/^\d{4}-\d{2}-\d{2}$/.test(d)) out.due_date = d
       }
+      if (json.due_time && /^\d{2}:\d{2}$/.test(json.due_time)) {
+        out.due_time = json.due_time
+        out.useTime = true
+      }
       return out
     }
   } catch {
@@ -99,7 +131,6 @@ Beschreibung: ${description || '-'}`,
   return smartSuggestLocal(title, description)
 }
 
-/** Beschreibung verbessern / erweitern */
 export async function improveDescription(title, description = '') {
   const apiKey = getAiApiKey()
   if (!apiKey) {
@@ -119,53 +150,103 @@ Aktuell: ${description || '(leer)'}`,
   ])
 }
 
-/** Tages-Briefing aus offenen Aufgaben */
-export async function generateDailyBriefing(todos) {
+function buildLocalBriefing(todos) {
   const open = todos.filter((t) => !t.completed)
-  if (open.length === 0) return 'Alles erledigt — stark! Zeit für eine Pause.'
-
-  const apiKey = getAiApiKey()
-  const list = open
-    .slice(0, 12)
-    .map((t) => `- ${t.title} (${t.priority}, ${t.category}${t.due_date ? `, fällig ${t.due_date}` : ''})`)
-    .join('\n')
-
-  if (!apiKey) {
-    const overdue = open.filter((t) => {
-      if (!t.due_date) return false
-      const due = new Date(t.due_date)
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      due.setHours(0, 0, 0, 0)
-      return due < today
-    })
-    const todayList = open.filter((t) => {
-      if (!t.due_date) return false
-      return new Date(t.due_date).toDateString() === new Date().toDateString()
-    })
-    const focus = (overdue.length ? overdue : todayList.length ? todayList : open.filter((t) => t.priority === 'hoch'))
-      .slice(0, 3)
-      .map((t) => t.title)
-    const parts = [`Du hast ${open.length} offene Aufgabe${open.length === 1 ? '' : 'n'}.`]
-    if (overdue.length) parts.push(`${overdue.length} überfällig — zuerst erledigen.`)
-    else if (todayList.length) parts.push(`${todayList.length} heute fällig.`)
-    if (focus.length) parts.push(`Start: ${focus.join(', ')}.`)
-    return parts.join(' ')
+  if (open.length === 0) {
+    return {
+      headline: 'Alles erledigt',
+      summary: 'Keine offenen Aufgaben — gönn dir eine Pause.',
+      focus: [],
+      stats: { open: 0, overdue: 0, today: 0, high: 0 },
+      tip: 'Neue Ziele kannst du jederzeit unter Aufgaben anlegen.',
+    }
   }
 
-  try {
-    return await callOpenAI([
-      {
-        role: 'user',
-        content: `Erstelle ein motivierendes Tages-Briefing (3–5 Sätze) basierend auf diesen Aufgaben:\n${list}`,
-      },
-    ], 250)
-  } catch (e) {
-    return `Briefing nicht verfügbar: ${e.message}`
+  const overdue = open.filter(isOverdue)
+  const today = open.filter(isDueToday)
+  const high = open.filter((t) => t.priority === 'hoch')
+  const sorted = sortByUrgency(open)
+  const focus = sorted.slice(0, 4).map((t) => {
+    let reason = 'Hohe Priorität'
+    if (isOverdue(t)) reason = 'Überfällig'
+    else if (isDueToday(t)) reason = t.due_time ? `Heute um ${t.due_time}` : 'Heute fällig'
+    else if (t.due_time) reason = `Fällig ${formatDueLabel(t)}`
+    return { title: t.title, reason }
+  })
+
+  let headline = `${open.length} Aufgabe${open.length === 1 ? '' : 'n'} offen`
+  if (overdue.length) headline = `${overdue.length} überfällig — zuerst erledigen`
+  else if (today.length) headline = `${today.length} heute auf dem Plan`
+
+  const summaryParts = []
+  if (overdue.length) summaryParts.push(`${overdue.length} überfällig`)
+  if (today.length) summaryParts.push(`${today.length} heute`)
+  if (high.length) summaryParts.push(`${high.length} mit hoher Priorität`)
+
+  return {
+    headline,
+    summary: summaryParts.length ? summaryParts.join(' · ') : 'Gut sortiert — Schritt für Schritt.',
+    focus,
+    stats: {
+      open: open.length,
+      overdue: overdue.length,
+      today: today.length,
+      high: high.length,
+    },
+    tip:
+      overdue.length > 0
+        ? 'Starte mit der ältesten überfälligen Aufgabe.'
+        : today.length > 0
+          ? 'Plane zuerst die Aufgaben mit Uhrzeit — die sind am zeitkritischsten.'
+          : 'Setze bei wichtigen Aufgaben ein Fälligkeitsdatum oder eine Uhrzeit.',
   }
 }
 
-/** Unteraufgaben vorschlagen */
+/** Strukturierter Tagesplan { headline, summary, focus[], stats, tip } */
+export async function generateDailyBriefing(todos) {
+  const open = todos.filter((t) => !t.completed)
+  if (open.length === 0) return buildLocalBriefing(todos)
+
+  const apiKey = getAiApiKey()
+  const local = buildLocalBriefing(todos)
+
+  if (!apiKey) return local
+
+  const list = sortByUrgency(open)
+    .slice(0, 12)
+    .map(
+      (t) =>
+        `- ${t.title} (${t.priority}, ${t.category}${formatDueLabel(t) ? `, ${formatDueLabel(t)}` : ''})`,
+    )
+    .join('\n')
+
+  try {
+    const raw = await callOpenAI(
+      [
+        {
+          role: 'user',
+          content: `Erstelle einen Tagesplan. Antworte NUR als JSON:
+{"headline":"kurz","summary":"1 Satz","focus":[{"title":"...","reason":"..."}],"tip":"1 Satz"}
+Max. 3 focus-Einträge. Aufgaben:
+${list}`,
+        },
+      ],
+      320,
+    )
+
+    const json = JSON.parse(raw.replace(/```json?|```/g, '').trim())
+    return {
+      headline: json.headline || local.headline,
+      summary: json.summary || local.summary,
+      focus: Array.isArray(json.focus) ? json.focus.slice(0, 4) : local.focus,
+      stats: local.stats,
+      tip: json.tip || local.tip,
+    }
+  } catch {
+    return local
+  }
+}
+
 export async function suggestSubtasks(title) {
   const apiKey = getAiApiKey()
   if (!apiKey) {

@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
-import { User, Bell, Sparkles, KeyRound } from 'lucide-react'
+import { User, Bell, Sparkles, KeyRound, Shield, Wifi, WifiOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import { useTodosContext } from '../context/TodosContext'
 import { getSettings, saveSettings, getAiApiKey, setAiApiKey } from '../lib/settings'
 import {
   requestNotificationPermission,
   getNotificationPermission,
   isNotificationSupported,
 } from '../lib/notifications'
+import { isBrowserOnline, clearOfflineCache, registerOfflineSupport } from '../lib/offline'
 import Card from '../components/ui/Card'
 import Tabs from '../components/ui/Tabs'
 import Input from '../components/ui/Input'
@@ -23,8 +25,9 @@ const settingTabs = [
 
 export default function SettingsPage() {
   const [tab, setTab] = useState('profile')
-  const { user, displayName, updateProfile, resetPassword, updatePassword, isSupabaseConfigured } =
+  const { user, displayName, updateProfile, resetPassword, updatePassword, isSupabaseConfigured, mode } =
     useAuth()
+  const { todos, refetch } = useTodosContext()
   const { toast } = useToast()
 
   const [name, setName] = useState(displayName)
@@ -32,8 +35,22 @@ export default function SettingsPage() {
   const [aiKey, setAiKey] = useState(getAiApiKey())
   const [newPassword, setNewPassword] = useState('')
   const [perm, setPerm] = useState(() => getNotificationPermission())
+  const [online, setOnline] = useState(isBrowserOnline())
+  const [swReady, setSwReady] = useState(false)
 
   useEffect(() => setName(displayName), [displayName])
+
+  useEffect(() => {
+    const on = () => setOnline(true)
+    const off = () => setOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    registerOfflineSupport().then(setSwReady)
+    return () => {
+      window.removeEventListener('online', on)
+      window.removeEventListener('offline', off)
+    }
+  }, [])
 
   const updatePrefs = (partial) => {
     setPrefs(saveSettings(partial))
@@ -46,11 +63,16 @@ export default function SettingsPage() {
     else if (result === 'denied') toast('In Browser-Einstellungen erlauben', 'error')
   }
 
+  const syncCache = async () => {
+    await refetch()
+    toast(`${todos.length} Aufgaben im lokalen Cache`, 'success')
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-primary">Einstellungen</h1>
-        <p className="text-sm text-muted">Profil, Erinnerungen und KI</p>
+        <p className="text-sm text-muted">Profil, Erinnerungen, KI und Sicherheit</p>
       </div>
 
       <Tabs tabs={settingTabs} active={tab} onChange={setTab} />
@@ -107,25 +129,107 @@ export default function SettingsPage() {
           <Section icon={Sparkles} title="KI" description="OpenAI API-Key optional">
             <div className="space-y-4">
               <Input label="API-Key" type="password" value={aiKey} onChange={(e) => setAiKey(e.target.value)} placeholder="sk-…" />
-              <p className="text-xs text-muted">Lokal ohne Key · mit Key bessere KI-Ergebnisse</p>
+              <p className="text-xs text-muted">Ohne Key: lokaler Tagesplan & Vorschläge. Mit Key: OpenAI.</p>
               <Button onClick={() => { setAiApiKey(aiKey); toast('Gespeichert', 'success') }}>Speichern</Button>
             </div>
           </Section>
         </Card>
       )}
 
-      {tab === 'security' && isSupabaseConfigured && (
-        <Card>
-          <Section icon={KeyRound} title="Sicherheit">
-            <form onSubmit={async (e) => { e.preventDefault(); const r = await resetPassword(user?.email); if (r.error) toast(r.error.message, 'error'); else toast('Link gesendet', 'success') }} className="mb-6 space-y-3">
-              <p className="text-sm text-muted">Passwort zurücksetzen per E-Mail</p>
-              <Button type="submit" variant="secondary">Reset-Link</Button>
-            </form>
-            <form onSubmit={async (e) => { e.preventDefault(); const r = await updatePassword(newPassword); if (r.error) toast(r.error.message, 'error'); else { toast('Aktualisiert', 'success'); setNewPassword('') } }} className="space-y-3">
-              <Input label="Neues Passwort" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={6} />
-              <Button type="submit">Ändern</Button>
-            </form>
+      {tab === 'security' && (
+        <Card className="space-y-6">
+          <Section icon={Shield} title="Offline & Datenschutz" description="Aufgaben bleiben auf diesem Gerät gespeichert">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex items-center gap-3">
+                  {online ? <Wifi className="h-5 w-5 text-emerald-400" /> : <WifiOff className="h-5 w-5 text-amber-400" />}
+                  <div>
+                    <p className="font-medium text-primary">{online ? 'Online' : 'Offline'}</p>
+                    <p className="text-xs text-muted">
+                      {mode === 'local'
+                        ? 'Nur lokaler Modus — alles bleibt auf dem Gerät'
+                        : online
+                          ? 'Cloud-Sync aktiv · Cache als Backup'
+                          : 'Kein Netz — du arbeitest mit dem lokalen Cache'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <Toggle
+                label="Offline-Cache nutzen"
+                checked={prefs.offlineCache !== false}
+                onChange={(v) => updatePrefs({ offlineCache: v })}
+              />
+
+              <p className="text-xs text-muted">
+                {swReady
+                  ? 'App-Oberfläche ist für Offline-Nutzung zwischengespeichert. Aufgaben werden automatisch lokal gesichert.'
+                  : 'Offline-Modus: Aufgaben werden in localStorage gespeichert (funktioniert auch ohne Service Worker).'}
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" size="sm" onClick={syncCache}>
+                  Cache aktualisieren
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    await clearOfflineCache()
+                    await registerOfflineSupport()
+                    toast('App-Cache geleert', 'info')
+                  }}
+                >
+                  App-Cache leeren
+                </Button>
+              </div>
+
+              <p className="text-xs text-muted">
+                Hinweis: KI mit OpenAI und Cloud-Login benötigen Internet. Tagesplan und Aufgaben ohne API-Key funktionieren offline.
+              </p>
+            </div>
           </Section>
+
+          {isSupabaseConfigured && (
+            <Section icon={KeyRound} title="Konto & Passwort">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  const r = await resetPassword(user?.email)
+                  if (r.error) toast(r.error.message, 'error')
+                  else toast('Link gesendet', 'success')
+                }}
+                className="mb-6 space-y-3"
+              >
+                <p className="text-sm text-muted">Passwort zurücksetzen per E-Mail</p>
+                <Button type="submit" variant="secondary">
+                  Reset-Link senden
+                </Button>
+              </form>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  const r = await updatePassword(newPassword)
+                  if (r.error) toast(r.error.message, 'error')
+                  else {
+                    toast('Passwort aktualisiert', 'success')
+                    setNewPassword('')
+                  }
+                }}
+                className="space-y-3"
+              >
+                <Input
+                  label="Neues Passwort"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={6}
+                />
+                <Button type="submit">Passwort ändern</Button>
+              </form>
+            </Section>
+          )}
         </Card>
       )}
     </div>

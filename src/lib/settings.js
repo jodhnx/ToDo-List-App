@@ -21,6 +21,7 @@ export function getSettings() {
     notifyMorning: true,
     morningHour: 8,
     rememberEmail: '',
+    offlineCache: true,
   })
 }
 

@@ -20,7 +20,8 @@ export default function AITaskTools({ title, description, onApply }) {
         const meta = await suggestTaskMeta(title, description)
         onApply(meta)
         const hints = ['Kategorie & Priorität']
-        if (meta.due_date) hints.push('Fälligkeit')
+        if (meta.due_date) hints.push('Datum')
+        if (meta.due_time) hints.push('Uhrzeit')
         toast(`${hints.join(' & ')} vorgeschlagen`, 'success')
       } else if (action === 'improve') {
         const text = await improveDescription(title, description)

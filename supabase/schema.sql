@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.todos (
   category TEXT NOT NULL CHECK (category IN ('schule', 'gym', 'arbeit', 'privat')),
   priority TEXT NOT NULL CHECK (priority IN ('niedrig', 'mittel', 'hoch')),
   due_date DATE,
+  due_time TEXT,
   completed BOOLEAN NOT NULL DEFAULT false,
   pinned BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

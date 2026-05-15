@@ -12,6 +12,8 @@ const emptyForm = {
   category: 'privat',
   priority: 'mittel',
   due_date: '',
+  due_time: '',
+  useTime: false,
   pinned: false,
 }
 
@@ -22,28 +24,38 @@ const TEMPLATES = [
   { label: 'Einkauf', title: 'Einkaufen: ', category: 'privat', priority: 'niedrig' },
 ]
 
+function fromInitial(initial) {
+  if (!initial) return emptyForm
+  const dueTime = initial.due_time ? String(initial.due_time).slice(0, 5) : ''
+  return {
+    title: initial.title || '',
+    description: initial.description || '',
+    category: initial.category || 'privat',
+    priority: initial.priority || 'mittel',
+    due_date: initial.due_date ? String(initial.due_date).slice(0, 10) : '',
+    due_time: dueTime,
+    useTime: !!dueTime,
+    pinned: !!initial.pinned,
+  }
+}
+
 export default function TodoForm({ initial, onSubmit, onCancel, submitting = false }) {
   const [form, setForm] = useState(emptyForm)
   const suggestTimer = useRef(null)
-
   useEffect(() => {
-    if (initial) {
-      setForm({
-        title: initial.title || '',
-        description: initial.description || '',
-        category: initial.category || 'privat',
-        priority: initial.priority || 'mittel',
-        due_date: initial.due_date ? String(initial.due_date).slice(0, 10) : '',
-        pinned: !!initial.pinned,
-      })
-    } else {
-      setForm(emptyForm)
-    }
+    setForm(fromInitial(initial))
   }, [initial])
 
   const handleChange = (field) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value
-    setForm((f) => ({ ...f, [field]: value }))
+    setForm((f) => {
+      const next = { ...f, [field]: value }
+      if (field === 'due_date' && !value) {
+        next.due_time = ''
+        next.useTime = false
+      }
+      return next
+    })
 
     if (field === 'title' && typeof value === 'string' && value.length >= 3 && !initial) {
       clearTimeout(suggestTimer.current)
@@ -67,8 +79,13 @@ export default function TodoForm({ initial, onSubmit, onCancel, submitting = fal
     e.preventDefault()
     if (!form.title.trim() || submitting) return
     await onSubmit({
-      ...form,
+      title: form.title,
+      description: form.description,
+      category: form.category,
+      priority: form.priority,
       due_date: form.due_date || null,
+      due_time: form.due_date && form.useTime && form.due_time ? form.due_time : null,
+      pinned: form.pinned,
     })
   }
 
@@ -96,7 +113,8 @@ export default function TodoForm({ initial, onSubmit, onCancel, submitting = fal
         onChange={handleChange('title')}
         placeholder="Was steht an?"
         required
-        autoFocus
+        autoComplete="off"
+        enterKeyHint="next"
       />
 
       <AITaskTools
@@ -123,6 +141,29 @@ export default function TodoForm({ initial, onSubmit, onCancel, submitting = fal
       </div>
 
       <Input label="Fällig am" type="date" name="due_date" value={form.due_date} onChange={handleChange('due_date')} />
+
+      {form.due_date && (
+        <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+            <input
+              type="checkbox"
+              checked={form.useTime}
+              onChange={handleChange('useTime')}
+              className="rounded text-indigo-500"
+            />
+            Genaue Uhrzeit (fertig um …)
+          </label>
+          {form.useTime && (
+            <Input
+              label="Uhrzeit"
+              type="time"
+              name="due_time"
+              value={form.due_time}
+              onChange={handleChange('due_time')}
+            />
+          )}
+        </div>
+      )}
 
       <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
         <input type="checkbox" checked={form.pinned} onChange={handleChange('pinned')} className="rounded text-indigo-500" />

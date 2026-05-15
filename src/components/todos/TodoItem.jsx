@@ -3,6 +3,7 @@ import { Calendar, Pencil, Trash2, Pin, Copy } from 'lucide-react'
 import Badge from '../ui/Badge'
 import { getCategory, getPriority } from '../../lib/constants'
 import { isOverdue } from '../../lib/todoUtils'
+import { formatDueLabel } from '../../lib/dateTime'
 
 /** Einzelne Aufgabe mit Pin, Duplizieren und Überfällig-Markierung */
 export default function TodoItem({ todo, onToggle, onEdit, onDelete, onPin, onDuplicate }) {
@@ -58,7 +59,7 @@ export default function TodoItem({ todo, onToggle, onEdit, onDelete, onPin, onDu
           {todo.due_date && (
             <span className={`flex items-center gap-1 text-xs ${overdue ? 'text-rose-400' : 'text-muted'}`}>
               <Calendar className="h-3 w-3" />
-              {new Date(todo.due_date).toLocaleDateString('de-DE')}
+              {formatDueLabel(todo)}
             </span>
           )}
         </div>
