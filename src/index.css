@@ -65,6 +65,17 @@
       radial-gradient(ellipse 60% 40% at 100% 0%, rgba(139, 92, 246, 0.12), transparent);
   }
 
+  .auth-panel {
+    @apply rounded-2xl border backdrop-blur-xl;
+    background: rgba(20, 20, 22, 0.85);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+  }
+  html.light .auth-panel {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+
   html.light .gradient-mesh {
     background:
       radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.1), transparent),

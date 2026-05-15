@@ -3,6 +3,7 @@ import Input from '../ui/Input'
 import Select from '../ui/Select'
 import Button from '../ui/Button'
 import { CATEGORIES, PRIORITIES } from '../../lib/constants'
+import AITaskTools from '../ai/AITaskTools'
 
 const emptyForm = {
   title: '',
@@ -54,6 +55,11 @@ export default function TodoForm({ initial, onSubmit, onCancel }) {
         onChange={handleChange('title')}
         placeholder="Was steht an?"
         required
+      />
+      <AITaskTools
+        title={form.title}
+        description={form.description}
+        onApply={(patch) => setForm((f) => ({ ...f, ...patch }))}
       />
       <div>
         <label className="mb-1.5 block text-sm font-medium text-zinc-400">Beschreibung</label>

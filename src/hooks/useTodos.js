@@ -47,7 +47,7 @@ export function useTodos() {
         localSaveTodos(userId, data ?? [])
       } else {
         setTodos(localGetTodos(userId))
-        setError('Lokaler Modus — für Online-Zugriff Supabase in .env konfigurieren.')
+        setError(null)
       }
     } catch (err) {
       console.warn('Supabase-Fehler, Fallback:', err)

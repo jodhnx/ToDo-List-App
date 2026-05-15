@@ -105,7 +105,24 @@ export function AuthProvider({ children }) {
       if (error) return { error }
       return { success: true }
     }
-    return { error: { message: 'Passwort-Reset nur mit Supabase (Online-Modus) verfügbar.' } }
+    return { error: { message: 'Passwort-Reset ist derzeit nicht verfügbar.' } }
+  }
+
+  const signInWithGoogle = async () => {
+    if (!supabase) return { error: { message: 'Google-Login nicht verfügbar.' } }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/app` },
+    })
+    if (error) return { error }
+    return { success: true }
+  }
+
+  const updatePassword = async (newPassword) => {
+    if (!supabase) return { error: { message: 'Nicht verfügbar.' } }
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) return { error }
+    return { success: true }
   }
 
   const updateProfile = async ({ displayName }) => {
@@ -138,6 +155,8 @@ export function AuthProvider({ children }) {
         signIn,
         signOut,
         resetPassword,
+        updatePassword,
+        signInWithGoogle,
         updateProfile,
         displayName,
         mode,

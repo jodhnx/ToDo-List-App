@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import Navbar from './Navbar'
 import { useAuth } from '../../context/AuthContext'
 import { TodosProvider, useTodosContext } from '../../context/TodosContext'
+import { useNotifications } from '../../hooks/useNotifications'
 
 const navItems = [
   { to: '/app', end: true, icon: LayoutDashboard, label: 'Dashboard' },
@@ -13,7 +14,8 @@ const navItems = [
 
 function AppShellInner() {
   const { displayName, isOnline } = useAuth()
-  const { syncing } = useTodosContext()
+  const { todos, syncing } = useTodosContext()
+  useNotifications(todos)
 
   return (
     <div className="min-h-screen gradient-mesh">
