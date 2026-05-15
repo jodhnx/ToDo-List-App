@@ -7,7 +7,9 @@ import { useToast } from '../../context/ToastContext'
 import { getSettings, saveSettings } from '../../lib/settings'
 import Input from '../ui/Input'
 import PasswordInput from '../ui/PasswordInput'
+import UsernameInput from '../ui/UsernameInput'
 import Button from '../ui/Button'
+import { checkUsernameAvailable } from '../../lib/username'
 
 const tabs = [
   { id: 'login', label: 'Anmelden' },
@@ -19,6 +21,7 @@ export default function AuthForm() {
   const [showReset, setShowReset] = useState(false)
   const [remember, setRemember] = useState(true)
   const [displayName, setDisplayName] = useState('')
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -54,8 +57,17 @@ export default function AuthForm() {
 
     if (remember) saveSettings({ rememberEmail: email })
 
+    if (isRegister && isSupabaseConfigured) {
+      const check = await checkUsernameAvailable(username)
+      if (!check.available) {
+        setLoading(false)
+        setError(check.error || 'Benutzername nicht verfügbar')
+        return
+      }
+    }
+
     const result = isRegister
-      ? await signUp(email, password, displayName)
+      ? await signUp(email, password, displayName, username)
       : await signIn(email, password)
 
     setLoading(false)
@@ -135,12 +147,17 @@ export default function AuthForm() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {isRegister && (
-                <Input
-                  label="Name"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Dein Name"
-                />
+                <>
+                  <Input
+                    label="Name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Dein Name"
+                  />
+                  {isSupabaseConfigured && (
+                    <UsernameInput value={username} onChange={setUsername} />
+                  )}
+                </>
               )}
               <Input
                 label="E-Mail"

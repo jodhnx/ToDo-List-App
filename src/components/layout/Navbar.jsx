@@ -1,5 +1,5 @@
 import { Link, NavLink } from 'react-router-dom'
-import { CheckCircle2, LogOut, LayoutDashboard, ListTodo } from 'lucide-react'
+import { CheckCircle2, LogOut, LayoutDashboard, ListTodo, Users, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import ThemeToggle from '../ui/ThemeToggle'
 import Button from '../ui/Button'
@@ -50,6 +50,17 @@ export default function Navbar({ showAuth = false }) {
               <ListTodo className="h-4 w-4" />
               Aufgaben
             </NavLink>
+            <NavLink
+              to="/app/family"
+              className={({ isActive }) =>
+                `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
+                  isActive ? 'bg-indigo-500/20 text-indigo-300' : 'text-muted hover:text-primary'
+                }`
+              }
+            >
+              <Users className="h-4 w-4" />
+              Familie
+            </NavLink>
           </div>
         )}
 
@@ -57,9 +68,13 @@ export default function Navbar({ showAuth = false }) {
           <ThemeToggle />
           {user ? (
             <>
-              <span className="hidden max-w-[140px] truncate text-sm text-muted lg:inline">
-                {displayName}
-              </span>
+              <Link
+                to="/app/profile"
+                className="hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted hover:bg-white/5 hover:text-primary sm:flex"
+              >
+                <User className="h-4 w-4" />
+                <span className="max-w-[100px] truncate">{displayName}</span>
+              </Link>
               <Button variant="ghost" size="sm" onClick={signOut}>
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline">Abmelden</span>

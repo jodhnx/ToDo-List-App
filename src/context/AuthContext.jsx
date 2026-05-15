@@ -8,6 +8,8 @@ import {
   localUpdateProfile,
 } from '../lib/localStorage'
 import { normalizeEmail } from '../lib/authHelpers'
+import { upsertProfile } from '../lib/profiles'
+import { normalizeUsername, validateUsernameFormat } from '../lib/username'
 
 const AuthContext = createContext(null)
 
@@ -49,17 +51,30 @@ export function AuthProvider({ children }) {
     return () => unsubscribe?.()
   }, [])
 
-  const signUp = async (email, password, displayName) => {
+  const signUp = async (email, password, displayName, username) => {
     const mail = normalizeEmail(email)
+    const uname = normalizeUsername(username)
+    const name = displayName || mail.split('@')[0]
+
     if (mode === 'supabase' && supabase) {
+      const formatErr = validateUsernameFormat(uname)
+      if (formatErr) return { error: { message: formatErr } }
+
       const { data, error } = await supabase.auth.signUp({
         email: mail,
         password,
-        options: { data: { display_name: displayName || mail.split('@')[0] } },
+        options: { data: { display_name: name, username: uname } },
       })
       if (error) return { error }
+      if (data.user?.id && data.session) {
+        try {
+          await upsertProfile({ id: data.user.id, username: uname, display_name: name })
+        } catch (profileErr) {
+          return { error: { message: profileErr.message || 'Benutzername konnte nicht gespeichert werden' } }
+        }
+      }
       if (data.user && !data.session) {
-        return { user: data.user, needsConfirmation: true }
+        return { user: data.user, needsConfirmation: true, pendingUsername: uname, pendingDisplayName: name }
       }
       setUser(data.user)
       return { user: data.user }

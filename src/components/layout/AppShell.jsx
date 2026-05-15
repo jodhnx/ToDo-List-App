@@ -1,15 +1,29 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, ListTodo, Settings, Cloud, CloudOff } from 'lucide-react'
+import { NavLink, Outlet, Link } from 'react-router-dom'
+import { LayoutDashboard, ListTodo, Settings, Cloud, CloudOff, Users, User } from 'lucide-react'
 import Navbar from './Navbar'
 import { useAuth } from '../../context/AuthContext'
 import { TodosProvider, useTodosContext } from '../../context/TodosContext'
+import { GroupsProvider, useGroups } from '../../context/GroupsContext'
 import { useNotifications } from '../../hooks/useNotifications'
+import UsernameGate from './UsernameGate'
 
 const navItems = [
   { to: '/app', end: true, icon: LayoutDashboard, label: 'Übersicht' },
   { to: '/app/tasks', icon: ListTodo, label: 'Aufgaben' },
+  { to: '/app/family', icon: Users, label: 'Familie' },
   { to: '/app/settings', icon: Settings, label: 'Einstellungen' },
 ]
+
+function FamilyNavBadge() {
+  const { inviteCount, unreadCount } = useGroups()
+  const n = inviteCount + unreadCount
+  if (!n) return null
+  return (
+    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] text-white">
+      {n > 9 ? '9+' : n}
+    </span>
+  )
+}
 
 function AppShellInner() {
   const { displayName, isOnline } = useAuth()
@@ -47,8 +61,16 @@ function AppShellInner() {
               ))}
             </nav>
 
+            <Link
+              to="/app/profile"
+              className="mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted hover:bg-white/5 hover:text-primary"
+            >
+              <User className="h-4 w-4" />
+              Profil
+            </Link>
+
             <div
-              className={`mt-6 flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
+              className={`mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
                 isOnline ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'
               }`}
             >
@@ -59,7 +81,9 @@ function AppShellInner() {
         </aside>
 
         <main className="min-w-0 flex-1 pb-20 lg:pb-0">
-          <Outlet />
+          <UsernameGate>
+            <Outlet />
+          </UsernameGate>
         </main>
       </div>
 
@@ -77,7 +101,10 @@ function AppShellInner() {
                 }`
               }
             >
-              <Icon className="h-5 w-5" />
+              <span className="relative">
+                <Icon className="h-5 w-5" />
+                {to === '/app/family' && <FamilyNavBadge />}
+              </span>
               {label}
             </NavLink>
           ))}
@@ -90,7 +117,9 @@ function AppShellInner() {
 export default function AppShell() {
   return (
     <TodosProvider>
-      <AppShellInner />
+      <GroupsProvider>
+        <AppShellInner />
+      </GroupsProvider>
     </TodosProvider>
   )
 }

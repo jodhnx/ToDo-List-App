@@ -9,6 +9,10 @@ import AuthPage from './pages/AuthPage'
 import HomePage from './pages/HomePage'
 import TasksPage from './pages/TasksPage'
 import SettingsPage from './pages/SettingsPage'
+import FamilyPage from './pages/FamilyPage'
+import GroupDetailPage from './pages/GroupDetailPage'
+import ProfilePage from './pages/ProfilePage'
+import NotificationsPage from './pages/NotificationsPage'
 import ErrorBoundary from './components/ErrorBoundary'
 
 export default function App() {
@@ -31,6 +35,10 @@ export default function App() {
               >
                 <Route index element={<HomePage />} />
                 <Route path="tasks" element={<TasksPage />} />
+                <Route path="family" element={<FamilyPage />} />
+                <Route path="family/:groupId" element={<GroupDetailPage />} />
+                <Route path="profile" element={<ProfilePage />} />
+                <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
