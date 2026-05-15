@@ -1,0 +1,27 @@
+{
+  "name": "focus-todos",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "^55.0.11",
+    "@supabase/supabase-js": "^2.49.1",
+    "framer-motion": "^12.6.3",
+    "lucide-react": "^0.487.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.2.6",
+    "react-native-web": "^0.21.2",
+    "react-router-dom": "^7.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.17",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.0.17",
+    "vite": "^6.2.3"
+  }
+}
