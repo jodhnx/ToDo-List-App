@@ -9,7 +9,7 @@ import TaskComments from './TaskComments'
 export default function SharedTaskItem({
   task,
   currentUserId,
-  isAdmin,
+  canAssign,
   onToggle,
   onAssign,
   members,
@@ -68,9 +68,9 @@ export default function SharedTaskItem({
               </span>
             )}
           </div>
-          {(isAdmin || task.creator_id === currentUserId) && task.status === 'open' && (
+          {canAssign && task.status === 'open' && (
             <select
-              className="mt-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-primary"
+              className="mt-2 w-full max-w-xs rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-primary"
               value={task.assignee_id || ''}
               onChange={(e) => onAssign(task, e.target.value || null)}
             >

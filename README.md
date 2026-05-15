@@ -21,7 +21,7 @@ Damit sich **andere Nutzer registrieren** und von überall zugreifen können, br
 
 1. Projekt auf [supabase.com](https://supabase.com) erstellen
 2. **SQL Editor** → `supabase/schema.sql` ausführen
-3. Falls Tabelle schon existiert → zusätzlich `migration_v2.sql`, `migration_v3_due_time.sql`, **`migration_v4_families.sql`** (Familien/Gruppen)
+3. Falls Tabelle schon existiert → `migration_v2.sql`, `migration_v3_due_time.sql`, **`migration_v4_families.sql`**, **`migration_v4_families_fix.sql`**, **`migration_v5_roles.sql`**
 4. **Authentication → URL Configuration**:
    - **Site URL:** `https://deine-app.vercel.app`
    - **Redirect URLs:** `https://deine-app.vercel.app/**`, `http://localhost:5173/**`

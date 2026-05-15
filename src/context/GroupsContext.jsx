@@ -19,6 +19,8 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
   fetchGroupActivity,
+  removeGroupMember,
+  setGroupMemberRole,
 } from '../lib/groupApi'
 
 const GroupsContext = createContext(null)
@@ -111,6 +113,8 @@ export function GroupsProvider({ children }) {
     markRead: markNotificationRead,
     markAllRead: () => markAllNotificationsRead(userId),
     fetchActivity: fetchGroupActivity,
+    removeMember: removeGroupMember,
+    setMemberRole: setGroupMemberRole,
   }
 
   return <GroupsContext.Provider value={value}>{children}</GroupsContext.Provider>

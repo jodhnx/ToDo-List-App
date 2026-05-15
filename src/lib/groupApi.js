@@ -66,7 +66,7 @@ export async function createGroup({ name, icon, userId }) {
   const { error: mErr } = await supabase.from('group_members').insert({
     group_id: group.id,
     user_id: userId,
-    role: 'admin',
+    role: 'owner',
   })
 
   if (mErr) {
@@ -321,6 +321,32 @@ export async function markNotificationRead(id) {
 
 export async function markAllNotificationsRead(userId) {
   await supabase.from('notifications').update({ read: true }).eq('user_id', userId).eq('read', false)
+}
+
+/** Mitglied aus Gruppe entfernen */
+export async function removeGroupMember(groupId, targetUserId) {
+  const { error } = await supabase.rpc('remove_group_member', {
+    p_group_id: groupId,
+    p_target_user_id: targetUserId,
+  })
+  if (error) throw new Error(formatGroupError(error))
+}
+
+/** Rang vergeben (owner → admin/member) */
+export async function setGroupMemberRole(groupId, targetUserId, newRole) {
+  const { error } = await supabase.rpc('set_group_member_role', {
+    p_group_id: groupId,
+    p_target_user_id: targetUserId,
+    p_new_role: newRole,
+  })
+  if (error) throw new Error(formatGroupError(error))
+}
+
+/** Mitglied per @username für Aufgabe finden */
+export function resolveMemberByUsername(members, username) {
+  const q = String(username || '').trim().replace(/^@/, '').toLowerCase()
+  if (!q) return null
+  return members.find((m) => m.profile?.username?.toLowerCase() === q) || null
 }
 
 export async function fetchGroupActivity(groupId, limit = 20) {

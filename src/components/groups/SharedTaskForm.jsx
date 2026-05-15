@@ -3,6 +3,7 @@ import Input from '../ui/Input'
 import Select from '../ui/Select'
 import Button from '../ui/Button'
 import { GROUP_CATEGORIES, GROUP_PRIORITIES } from '../../lib/groupConstants'
+import { resolveMemberByUsername } from '../../lib/groupApi'
 
 const empty = {
   title: '',
@@ -12,20 +13,34 @@ const empty = {
   due_date: '',
   due_time: '',
   useTime: false,
-  assignee_id: '',
+  assignee_username: '',
 }
 
 export default function SharedTaskForm({ members, onSubmit, submitting }) {
   const [form, setForm] = useState(empty)
+  const [assignError, setAssignError] = useState('')
 
   const change = (field) => (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked : e.target.value
     setForm((f) => ({ ...f, [field]: v }))
+    if (field === 'assignee_username') setAssignError('')
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.title.trim()) return
+
+    let assignee_id = null
+    const uname = form.assignee_username.trim()
+    if (uname) {
+      const member = resolveMemberByUsername(members, uname)
+      if (!member) {
+        setAssignError('Mitglied nicht in dieser Gruppe — nur @username aus der Gruppe')
+        return
+      }
+      assignee_id = member.user_id
+    }
+
     await onSubmit({
       title: form.title.trim(),
       description: form.description,
@@ -33,10 +48,11 @@ export default function SharedTaskForm({ members, onSubmit, submitting }) {
       priority: form.priority,
       due_date: form.due_date || null,
       due_time: form.due_date && form.useTime && form.due_time ? form.due_time : null,
-      assignee_id: form.assignee_id || null,
+      assignee_id,
       status: 'open',
     })
     setForm(empty)
+    setAssignError('')
   }
 
   return (
@@ -73,18 +89,37 @@ export default function SharedTaskForm({ members, onSubmit, submitting }) {
       {form.due_date && form.useTime && (
         <Input label="Uhrzeit" type="time" value={form.due_time} onChange={change('due_time')} />
       )}
-      <Select
-        label="Zuweisen an"
-        value={form.assignee_id}
-        onChange={change('assignee_id')}
-        options={[
-          { value: '', label: 'Niemand' },
-          ...members.map((m) => ({
-            value: m.user_id,
-            label: `@${m.profile?.username}`,
-          })),
-        ]}
-      />
+
+      <div>
+        <Input
+          label="Zuweisen an (@username)"
+          value={form.assignee_username}
+          onChange={change('assignee_username')}
+          placeholder="z.B. max_mustermann"
+        />
+        <p className="mt-1 text-xs text-muted">
+          Jeder in der Gruppe kann Aufgaben an ein bestimmtes Mitglied vergeben.
+        </p>
+        {assignError && <p className="mt-1 text-xs text-rose-400">{assignError}</p>}
+        {members.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {members.map((m) => (
+              <button
+                key={m.user_id}
+                type="button"
+                onClick={() => {
+                  setForm((f) => ({ ...f, assignee_username: m.profile?.username || '' }))
+                  setAssignError('')
+                }}
+                className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-indigo-300 hover:border-indigo-500/40"
+              >
+                @{m.profile?.username}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <Button type="submit" disabled={submitting} className="w-full">
         {submitting ? 'Speichern…' : 'Aufgabe hinzufügen'}
       </Button>

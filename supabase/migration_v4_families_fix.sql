@@ -52,7 +52,7 @@ BEGIN
   RETURNING * INTO g;
 
   INSERT INTO public.group_members (group_id, user_id, role)
-  VALUES (g.id, uid, 'admin');
+  VALUES (g.id, uid, 'owner');
 
   RETURN to_jsonb(g);
 END;

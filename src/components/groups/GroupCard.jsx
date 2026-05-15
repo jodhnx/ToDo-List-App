@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
-import { ChevronRight, Shield } from 'lucide-react'
+import { ChevronRight, Shield, Crown } from 'lucide-react'
 import { getGroupIcon } from '../../lib/groupConstants'
-import Avatar from '../ui/Avatar'
 
 export default function GroupCard({ group, memberCount = 0 }) {
   const { Icon } = getGroupIcon(group.icon)
@@ -17,12 +16,15 @@ export default function GroupCard({ group, memberCount = 0 }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <h3 className="truncate font-semibold text-primary">{group.name}</h3>
+          {group.my_role === 'owner' && (
+            <Crown className="h-3.5 w-3.5 shrink-0 text-violet-400" title="Oberadmin" />
+          )}
           {group.my_role === 'admin' && (
             <Shield className="h-3.5 w-3.5 shrink-0 text-amber-400" title="Admin" />
           )}
         </div>
         <p className="text-xs text-muted">
-          {memberCount} Mitglieder · {new Date(group.created_at).toLocaleDateString('de-DE')}
+          {memberCount || '—'} Mitglieder · {new Date(group.created_at).toLocaleDateString('de-DE')}
         </p>
       </div>
       <ChevronRight className="h-5 w-5 shrink-0 text-muted" />

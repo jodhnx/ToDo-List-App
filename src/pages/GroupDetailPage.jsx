@@ -7,12 +7,14 @@ import { useAuth } from '../context/AuthContext'
 import { useGroups } from '../context/GroupsContext'
 import { useToast } from '../context/ToastContext'
 import { getGroupIcon } from '../lib/groupConstants'
+import { resolveDisplayRole } from '../lib/groupRoles'
 import GroupStats from '../components/groups/GroupStats'
 import MemberList from '../components/groups/MemberList'
 import ActivityFeed from '../components/groups/ActivityFeed'
 import SharedTaskItem from '../components/groups/SharedTaskItem'
 import SharedTaskForm from '../components/groups/SharedTaskForm'
 import InviteModal from '../components/groups/InviteModal'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import Tabs from '../components/ui/Tabs'
@@ -27,8 +29,19 @@ const filterTabs = [
 export default function GroupDetailPage() {
   const { groupId } = useParams()
   const { user } = useAuth()
-  const { groups, fetchMembers, fetchTasks, createTask, updateTask, fetchComments, addComment, inviteMember, fetchActivity } =
-    useGroups()
+  const {
+    groups,
+    fetchMembers,
+    fetchTasks,
+    createTask,
+    updateTask,
+    fetchComments,
+    addComment,
+    inviteMember,
+    removeMember,
+    setMemberRole,
+    fetchActivity,
+  } = useGroups()
   const { toast } = useToast()
 
   const group = groups.find((g) => g.id === groupId)
@@ -41,6 +54,15 @@ export default function GroupDetailPage() {
   const [inviteOpen, setInviteOpen] = useState(false)
   const [tab, setTab] = useState('tasks')
   const [submitting, setSubmitting] = useState(false)
+  const [removeTarget, setRemoveTarget] = useState(null)
+
+  const myMembership = useMemo(
+    () => members.find((m) => m.user_id === user?.id),
+    [members, user?.id],
+  )
+  const myRole = myMembership
+    ? resolveDisplayRole(myMembership, group?.created_by)
+    : resolveDisplayRole({ role: group?.my_role, user_id: user?.id }, group?.created_by)
 
   const load = useCallback(async () => {
     if (!groupId) return
@@ -62,8 +84,14 @@ export default function GroupDetailPage() {
     if (!groupId || !supabase) return
     const ch = supabase
       .channel(`group-${groupId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_tasks', filter: `group_id=eq.${groupId}` }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => load())
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'shared_tasks', filter: `group_id=eq.${groupId}` },
+        () => load(),
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${groupId}` }, () =>
+        load(),
+      )
       .subscribe()
     return () => supabase.removeChannel(ch)
   }, [groupId, load])
@@ -76,8 +104,6 @@ export default function GroupDetailPage() {
     return list
   }, [tasks, filter, user?.id])
 
-  const isAdmin = group?.my_role === 'admin'
-
   const handleCreate = async (payload) => {
     setSubmitting(true)
     try {
@@ -86,7 +112,13 @@ export default function GroupDetailPage() {
         group_id: groupId,
         creator_id: user.id,
       })
-      toast('Aufgabe erstellt', 'success')
+      const who = members.find((m) => m.user_id === payload.assignee_id)
+      toast(
+        payload.assignee_id
+          ? `Aufgabe an @${who?.profile?.username} vergeben`
+          : 'Aufgabe erstellt',
+        'success',
+      )
       await load()
     } catch (e) {
       toast(e.message, 'error')
@@ -110,13 +142,39 @@ export default function GroupDetailPage() {
 
   const handleAssign = async (task, assigneeId) => {
     await updateTask(task.id, { assignee_id: assigneeId }, { actorId: user.id })
-    toast('Zugewiesen', 'success')
+    const who = members.find((m) => m.user_id === assigneeId)
+    toast(assigneeId ? `Zugewiesen an @${who?.profile?.username}` : 'Zuweisung entfernt', 'success')
     await load()
   }
 
   const handleInvite = async (username) => {
     await inviteMember({ groupId, username, groupName: group.name })
-    toast('Einladung gesendet', 'success')
+    toast(`Einladung an @${username.replace(/^@/, '')} gesendet`, 'success')
+  }
+
+  const handleRemove = async () => {
+    if (!removeTarget) return
+    try {
+      await removeMember(groupId, removeTarget.user_id)
+      toast(`@${removeTarget.profile?.username} entfernt`, 'info')
+      setRemoveTarget(null)
+      await load()
+    } catch (e) {
+      toast(e.message, 'error')
+    }
+  }
+
+  const handleRoleChange = async (member, newRole) => {
+    try {
+      await setMemberRole(groupId, member.user_id, newRole)
+      toast(
+        `@${member.profile?.username} ist jetzt ${newRole === 'admin' ? 'Admin' : 'Mitglied'}`,
+        'success',
+      )
+      await load()
+    } catch (e) {
+      toast(e.message, 'error')
+    }
   }
 
   if (!group) {
@@ -141,14 +199,15 @@ export default function GroupDetailPage() {
         </div>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-primary">{group.name}</h1>
-          <p className="text-sm text-muted">{members.length} Mitglieder</p>
+          <p className="text-sm text-muted">
+            {members.length} Mitglieder · Dein Rang:{' '}
+            {myRole === 'owner' ? 'Oberadmin' : myRole === 'admin' ? 'Admin' : 'Mitglied'}
+          </p>
         </div>
-        {isAdmin && (
-          <Button size="sm" variant="secondary" onClick={() => setInviteOpen(true)} className="gap-1">
-            <UserPlus className="h-4 w-4" />
-            Einladen
-          </Button>
-        )}
+        <Button size="sm" variant="secondary" onClick={() => setInviteOpen(true)} className="gap-1">
+          <UserPlus className="h-4 w-4" />
+          Einladen
+        </Button>
       </div>
 
       <GroupStats tasks={tasks} members={members} />
@@ -188,7 +247,7 @@ export default function GroupDetailPage() {
                   key={task.id}
                   task={task}
                   currentUserId={user.id}
-                  isAdmin={isAdmin}
+                  canAssign
                   members={members}
                   onToggle={handleToggle}
                   onAssign={handleAssign}
@@ -198,11 +257,23 @@ export default function GroupDetailPage() {
               ))}
             </AnimatePresence>
           </ul>
-          {filtered.length === 0 && <p className="text-center text-sm text-muted">Keine Aufgaben in diesem Filter.</p>}
+          {filtered.length === 0 && (
+            <p className="text-center text-sm text-muted">Keine Aufgaben in diesem Filter.</p>
+          )}
         </>
       )}
 
-      {tab === 'members' && <MemberList members={members} />}
+      {tab === 'members' && (
+        <MemberList
+          members={members}
+          groupCreatedBy={group.created_by}
+          currentUserId={user.id}
+          myRole={myRole}
+          onRemove={(m) => setRemoveTarget(m)}
+          onRoleChange={handleRoleChange}
+        />
+      )}
+
       {tab === 'activity' && (
         <Card>
           <ActivityFeed items={activity} />
@@ -210,6 +281,18 @@ export default function GroupDetailPage() {
       )}
 
       <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} onInvite={handleInvite} />
+
+      <ConfirmDialog
+        open={!!removeTarget}
+        title="Mitglied entfernen?"
+        message={
+          removeTarget
+            ? `@${removeTarget.profile?.username} verliert den Zugriff auf diese Gruppe.`
+            : ''
+        }
+        onConfirm={handleRemove}
+        onCancel={() => setRemoveTarget(null)}
+      />
     </div>
   )
 }
