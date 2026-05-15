@@ -94,11 +94,24 @@ export async function fetchMyGroups(userId) {
 
   if (gErr) throw new Error(formatGroupError(gErr))
 
+  const { data: memberRows, error: cErr } = await supabase
+    .from('group_members')
+    .select('group_id')
+    .in('group_id', groupIds)
+
+  if (cErr) throw new Error(formatGroupError(cErr))
+
+  const memberCounts = {}
+  for (const row of memberRows || []) {
+    memberCounts[row.group_id] = (memberCounts[row.group_id] || 0) + 1
+  }
+
   const meta = Object.fromEntries(memberships.map((m) => [m.group_id, m]))
   return (groups || []).map((g) => ({
     ...g,
     my_role: meta[g.id]?.role,
     joined_at: meta[g.id]?.joined_at,
+    member_count: memberCounts[g.id] || 0,
   }))
 }
 

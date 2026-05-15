@@ -184,7 +184,7 @@ export default function FamilyPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
             >
-              <GroupCard group={g} />
+              <GroupCard group={g} memberCount={g.member_count} />
             </motion.div>
           ))}
         </ul>
