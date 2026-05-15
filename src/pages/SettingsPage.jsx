@@ -31,7 +31,7 @@ export default function SettingsPage() {
   const [prefs, setPrefs] = useState(getSettings())
   const [aiKey, setAiKey] = useState(getAiApiKey())
   const [newPassword, setNewPassword] = useState('')
-  const [perm, setPerm] = useState(getNotificationPermission())
+  const [perm, setPerm] = useState(() => getNotificationPermission())
 
   useEffect(() => setName(displayName), [displayName])
 

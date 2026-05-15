@@ -3,27 +3,39 @@ import {
   registerServiceWorker,
   checkAndNotifyTodos,
   checkMorningBriefing,
+  isNotificationSupported,
 } from '../lib/notifications'
 import { getSettings } from '../lib/settings'
 
-/** Push-Benachrichtigungen für fällige Aufgaben */
+/** Push-Benachrichtigungen — nur wenn die API im Browser existiert */
 export function useNotifications(todos) {
   useEffect(() => {
+    if (!isNotificationSupported()) return
     registerServiceWorker()
   }, [])
 
   useEffect(() => {
+    if (!isNotificationSupported()) return
     if (!todos?.length) return
+
     const settings = getSettings()
     if (!settings.notifications) return
 
-    checkAndNotifyTodos(todos)
-    checkMorningBriefing(todos)
-
-    const interval = setInterval(() => {
+    try {
       checkAndNotifyTodos(todos)
       checkMorningBriefing(todos)
-    }, 60_000 * 15) // alle 15 Min
+    } catch (e) {
+      console.warn('Notifications:', e)
+    }
+
+    const interval = setInterval(() => {
+      try {
+        checkAndNotifyTodos(todos)
+        checkMorningBriefing(todos)
+      } catch (e) {
+        console.warn('Notifications:', e)
+      }
+    }, 60_000 * 15)
 
     return () => clearInterval(interval)
   }, [todos])

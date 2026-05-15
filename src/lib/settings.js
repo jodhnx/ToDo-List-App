@@ -15,7 +15,7 @@ function write(key, value) {
 
 export function getSettings() {
   return read('prefs', {
-    notifications: true,
+    notifications: false,
     notifyOverdue: true,
     notifyToday: true,
     notifyMorning: true,
