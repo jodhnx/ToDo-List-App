@@ -7,6 +7,7 @@ import AppShell from './components/layout/AppShell'
 import Landing from './pages/Landing'
 import AuthPage from './pages/AuthPage'
 import HomePage from './pages/HomePage'
+import TasksPage from './pages/TasksPage'
 import SettingsPage from './pages/SettingsPage'
 import ErrorBoundary from './components/ErrorBoundary'
 
@@ -29,7 +30,7 @@ export default function App() {
                 }
               >
                 <Route index element={<HomePage />} />
-                <Route path="tasks" element={<Navigate to="/app" replace />} />
+                <Route path="tasks" element={<TasksPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

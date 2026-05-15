@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
-import { Plus, Loader2, Trash2, CheckCheck, Download } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
+import { Loader2, Trash2, CheckCheck, Download, ChevronDown, SlidersHorizontal } from 'lucide-react'
 import { useTodosContext } from '../context/TodosContext'
 import { useToast } from '../context/ToastContext'
 import { applyQuickFilter, sortTodos } from '../lib/todoUtils'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
-import Card from '../components/ui/Card'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import TodoFilters from '../components/todos/TodoFilters'
 import TodoItem from '../components/todos/TodoItem'
@@ -17,6 +16,7 @@ import Select from '../components/ui/Select'
 import { SORT_OPTIONS } from '../lib/constants'
 import Fab from '../components/ui/Fab'
 
+/** Vollständige Aufgabenliste — alle Aufgaben direkt sichtbar, + für neue mit allen Features */
 export default function TasksPage() {
   const {
     todos,
@@ -38,7 +38,8 @@ export default function TasksPage() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [quickFilter, setQuickFilter] = useState(searchParams.get('quick') || 'all')
-  const [sortBy, setSortBy] = useState('created_at')
+  const [sortBy, setSortBy] = useState('due_date')
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [confirm, setConfirm] = useState(null)
@@ -137,94 +138,116 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-primary">Aufgaben</h1>
-          <p className="text-sm text-muted">{filtered.length} von {todos.length} angezeigt</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="ghost" size="sm" onClick={handleExport} title="JSON exportieren">
-            <Download className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={handleBulkDelete}>
-            <Trash2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Erledigte löschen</span>
-          </Button>
-          <Button variant="secondary" size="sm" onClick={async () => {
-            const n = await completeAllOpen()
-            toast(n ? `${n} als erledigt markiert` : 'Keine offenen Aufgaben', 'success')
-          }}>
-            <CheckCheck className="h-4 w-4" />
-            <span className="hidden sm:inline">Alle erledigen</span>
-          </Button>
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Neu
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-4 pb-4">
+      <header>
+        <h1 className="text-2xl font-bold text-primary">Aufgaben</h1>
+        <p className="text-sm text-muted">
+          {loading ? 'Lädt…' : `${filtered.length} von ${todos.length} Aufgaben`}
+        </p>
+      </header>
 
-      <Card>
-        <div className="mb-4 space-y-4">
-          <QuickFilterBar value={quickFilter} onChange={setQuickFilter} />
-          <TodoFilters
-            search={search}
-            onSearchChange={setSearch}
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            categoryFilter={categoryFilter}
-            onCategoryChange={setCategoryFilter}
-            priorityFilter={priorityFilter}
-            onPriorityChange={setPriorityFilter}
-          />
-          <Select
-            label="Sortierung"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            options={SORT_OPTIONS}
-            className="max-w-xs"
-          />
-        </div>
+      <QuickFilterBar value={quickFilter} onChange={setQuickFilter} />
 
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <p className="py-12 text-center text-muted">
+      {/* Liste zuerst — direkt alle Aufgaben sichtbar */}
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-white/15 py-16 text-center">
+          <p className="text-muted">
             {todos.length === 0 ? 'Noch keine Aufgaben.' : 'Keine Treffer für die Filter.'}
           </p>
-        ) : (
-          <ul className="space-y-3">
-            <AnimatePresence mode="popLayout">
-              {filtered.map((todo) => (
-                <TodoItem
-                  key={todo.id}
-                  todo={todo}
-                  onToggle={toggleComplete}
-                  onEdit={(t) => {
-                    setEditing(t)
-                    setModalOpen(true)
-                  }}
-                  onDelete={handleDelete}
-                  onPin={togglePin}
-                  onDuplicate={async (t) => {
-                    await duplicateTodo(t)
-                    toast('Aufgabe dupliziert', 'success')
-                  }}
-                />
-              ))}
-            </AnimatePresence>
-          </ul>
+          <p className="mt-2 text-xs text-muted">Tippe unten auf + für eine neue Aufgabe.</p>
+        </div>
+      ) : (
+        <ul className="space-y-2.5">
+          <AnimatePresence mode="popLayout">
+            {filtered.map((todo) => (
+              <TodoItem
+                key={todo.id}
+                todo={todo}
+                onToggle={toggleComplete}
+                onEdit={(t) => {
+                  setEditing(t)
+                  setModalOpen(true)
+                }}
+                onDelete={handleDelete}
+                onPin={togglePin}
+                onDuplicate={async (t) => {
+                  await duplicateTodo(t)
+                  toast('Aufgabe dupliziert', 'success')
+                }}
+              />
+            ))}
+          </AnimatePresence>
+        </ul>
+      )}
+
+      {/* Filter & Aktionen — optional aufklappbar */}
+      <div className="rounded-2xl border border-white/10 bg-surface/40 p-3">
+        <button
+          type="button"
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className="flex w-full items-center justify-between text-sm text-muted"
+        >
+          <span className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4" />
+            Filter, Sortierung & Aktionen
+          </span>
+          <ChevronDown className={`h-4 w-4 transition ${filtersOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {filtersOpen && (
+          <div className="mt-4 space-y-4 border-t border-white/10 pt-4">
+            <TodoFilters
+              search={search}
+              onSearchChange={setSearch}
+              statusFilter={statusFilter}
+              onStatusChange={setStatusFilter}
+              categoryFilter={categoryFilter}
+              onCategoryChange={setCategoryFilter}
+              priorityFilter={priorityFilter}
+              onPriorityChange={setPriorityFilter}
+            />
+            <Select
+              label="Sortierung"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              options={SORT_OPTIONS}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button variant="ghost" size="sm" onClick={handleExport} title="JSON exportieren">
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleBulkDelete}>
+                <Trash2 className="h-4 w-4" />
+                Erledigte löschen
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={async () => {
+                  const n = await completeAllOpen()
+                  toast(n ? `${n} als erledigt markiert` : 'Keine offenen Aufgaben', 'success')
+                }}
+              >
+                <CheckCheck className="h-4 w-4" />
+                Alle erledigen
+              </Button>
+            </div>
+          </div>
         )}
-      </Card>
+      </div>
 
       <Modal
         open={modalOpen}
         onClose={() => {
-          setModalOpen(false)
-          setEditing(null)
+          if (!submitting) {
+            setModalOpen(false)
+            setEditing(null)
+          }
         }}
         title={editing ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}
       >
@@ -249,7 +272,7 @@ export default function TasksPage() {
         onCancel={() => setConfirm(null)}
       />
 
-      <Fab onClick={openCreate} />
+      <Fab onClick={openCreate} label="Neue Aufgabe" showOnDesktop />
     </div>
   )
 }

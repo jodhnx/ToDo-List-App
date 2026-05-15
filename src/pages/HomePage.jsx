@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Loader2, Plus, SlidersHorizontal, ChevronDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTodosContext } from '../context/TodosContext'
@@ -18,8 +18,8 @@ import QuickFilterBar from '../components/todos/QuickFilterBar'
 import TodoForm from '../components/todos/TodoForm'
 import Modal from '../components/ui/Modal'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
-import Fab from '../components/ui/Fab'
 import Input from '../components/ui/Input'
+import { ListTodo } from 'lucide-react'
 
 function greeting() {
   const h = new Date().getHours()
@@ -202,14 +202,13 @@ export default function HomePage() {
           <p className="text-muted">
             {todos.length === 0 ? 'Noch keine Aufgaben — leg los!' : 'Keine Treffer für die Filter.'}
           </p>
-          <button
-            type="button"
-            onClick={openCreate}
+          <Link
+            to="/app/tasks?new=1"
             className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-500 px-4 py-2 text-sm font-medium text-white"
           >
             <Plus className="h-4 w-4" />
             Erste Aufgabe
-          </button>
+          </Link>
         </div>
       ) : (
         <div className="space-y-5">
@@ -285,7 +284,13 @@ export default function HomePage() {
         onCancel={() => setConfirm(null)}
       />
 
-      <Fab onClick={openCreate} />
+      <Link
+        to="/app/tasks"
+        className="flex items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 py-3 text-sm font-medium text-indigo-300 transition hover:bg-indigo-500/20"
+      >
+        <ListTodo className="h-4 w-4" />
+        Alle Aufgaben anzeigen
+      </Link>
     </div>
   )
 }
