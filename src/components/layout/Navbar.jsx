@@ -1,5 +1,5 @@
 import { Link, NavLink } from 'react-router-dom'
-import { CheckCircle2, LogOut, LayoutDashboard, ListTodo } from 'lucide-react'
+import { CheckCircle2, LogOut, LayoutDashboard } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import ThemeToggle from '../ui/ThemeToggle'
 import Button from '../ui/Button'
@@ -37,18 +37,7 @@ export default function Navbar({ showAuth = false }) {
               }
             >
               <LayoutDashboard className="h-4 w-4" />
-              Dashboard
-            </NavLink>
-            <NavLink
-              to="/app/tasks"
-              className={({ isActive }) =>
-                `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
-                  isActive ? 'bg-indigo-500/20 text-indigo-300' : 'text-muted hover:text-primary'
-                }`
-              }
-            >
-              <ListTodo className="h-4 w-4" />
-              Aufgaben
+              Übersicht
             </NavLink>
           </div>
         )}

@@ -6,8 +6,7 @@ import ProtectedRoute from './components/layout/ProtectedRoute'
 import AppShell from './components/layout/AppShell'
 import Landing from './pages/Landing'
 import AuthPage from './pages/AuthPage'
-import DashboardPage from './pages/DashboardPage'
-import TasksPage from './pages/TasksPage'
+import HomePage from './pages/HomePage'
 import SettingsPage from './pages/SettingsPage'
 import ErrorBoundary from './components/ErrorBoundary'
 
@@ -29,8 +28,8 @@ export default function App() {
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<DashboardPage />} />
-                <Route path="tasks" element={<TasksPage />} />
+                <Route index element={<HomePage />} />
+                <Route path="tasks" element={<Navigate to="/app" replace />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

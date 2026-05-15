@@ -74,7 +74,8 @@ export async function suggestTaskMeta(title, description = '') {
     const raw = await callOpenAI([
       {
         role: 'user',
-        content: `Analysiere diese Aufgabe und antworte NUR als JSON: {"category":"schule|gym|arbeit|privat","priority":"niedrig|mittel|hoch"}
+        content: `Analysiere diese Aufgabe und antworte NUR als JSON:
+{"category":"schule|gym|arbeit|privat","priority":"niedrig|mittel|hoch","due_date":"YYYY-MM-DD oder null"}
 Titel: ${title}
 Beschreibung: ${description || '-'}`,
       },
@@ -82,10 +83,15 @@ Beschreibung: ${description || '-'}`,
 
     const json = JSON.parse(raw.replace(/```json?|```/g, '').trim())
     if (['schule', 'gym', 'arbeit', 'privat'].includes(json.category)) {
-      return {
+      const out = {
         category: json.category,
         priority: ['niedrig', 'mittel', 'hoch'].includes(json.priority) ? json.priority : 'mittel',
       }
+      if (json.due_date && json.due_date !== 'null') {
+        const d = String(json.due_date).slice(0, 10)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) out.due_date = d
+      }
+      return out
     }
   } catch {
     /* Fallback */
@@ -125,8 +131,26 @@ export async function generateDailyBriefing(todos) {
     .join('\n')
 
   if (!apiKey) {
-    const high = open.filter((t) => t.priority === 'hoch').length
-    return `Du hast ${open.length} offene Aufgaben${high ? `, davon ${high} mit hoher Priorität` : ''}. Starte mit der wichtigsten.`
+    const overdue = open.filter((t) => {
+      if (!t.due_date) return false
+      const due = new Date(t.due_date)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      due.setHours(0, 0, 0, 0)
+      return due < today
+    })
+    const todayList = open.filter((t) => {
+      if (!t.due_date) return false
+      return new Date(t.due_date).toDateString() === new Date().toDateString()
+    })
+    const focus = (overdue.length ? overdue : todayList.length ? todayList : open.filter((t) => t.priority === 'hoch'))
+      .slice(0, 3)
+      .map((t) => t.title)
+    const parts = [`Du hast ${open.length} offene Aufgabe${open.length === 1 ? '' : 'n'}.`]
+    if (overdue.length) parts.push(`${overdue.length} überfällig — zuerst erledigen.`)
+    else if (todayList.length) parts.push(`${todayList.length} heute fällig.`)
+    if (focus.length) parts.push(`Start: ${focus.join(', ')}.`)
+    return parts.join(' ')
   }
 
   try {

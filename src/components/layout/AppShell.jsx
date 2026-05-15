@@ -1,14 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, ListTodo, Settings, Cloud, CloudOff } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { LayoutDashboard, Settings, Cloud, CloudOff } from 'lucide-react'
 import Navbar from './Navbar'
 import { useAuth } from '../../context/AuthContext'
 import { TodosProvider, useTodosContext } from '../../context/TodosContext'
 import { useNotifications } from '../../hooks/useNotifications'
 
 const navItems = [
-  { to: '/app', end: true, icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/app/tasks', icon: ListTodo, label: 'Aufgaben' },
+  { to: '/app', end: true, icon: LayoutDashboard, label: 'Übersicht' },
   { to: '/app/settings', icon: Settings, label: 'Einstellungen' },
 ]
 

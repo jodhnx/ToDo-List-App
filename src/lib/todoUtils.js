@@ -95,6 +95,27 @@ export function getCategoryStats(todos) {
   return stats
 }
 
+/** Aufgaben für Übersicht in Abschnitte gruppieren (ohne Doppelungen) */
+export function groupTodosForOverview(list) {
+  const open = list.filter((t) => !t.completed)
+  const done = list.filter((t) => t.completed)
+  const seen = new Set()
+
+  const take = (items) => {
+    const out = items.filter((t) => !seen.has(t.id))
+    out.forEach((t) => seen.add(t.id))
+    return out
+  }
+
+  return {
+    pinned: take(open.filter((t) => t.pinned)),
+    overdue: take(open.filter(isOverdue)),
+    today: take(open.filter(isDueToday)),
+    other: take(open.filter((t) => !t.pinned && !isOverdue(t) && !isDueToday(t))),
+    done,
+  }
+}
+
 /** Prioritäts-Statistik */
 export function getPriorityStats(todos) {
   const open = todos.filter((t) => !t.completed)
