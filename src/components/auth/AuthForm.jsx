@@ -64,7 +64,8 @@ export default function AuthForm() {
       return
     }
     if (result.needsConfirmation) {
-      setInfo('Bestätige deine E-Mail, dann kannst du dich anmelden.')
+      setTab('login')
+      setInfo('Registrierung erfolgreich! Bestätige die E-Mail — danach kannst du dich jederzeit anmelden.')
       return
     }
     navigate('/app')

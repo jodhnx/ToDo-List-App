@@ -9,9 +9,35 @@ import {
 } from '../lib/localStorage'
 import { useAuth } from '../context/AuthContext'
 
-/**
- * Zentrale Todo-Logik mit Supabase Realtime, Bulk-Aktionen und localStorage-Fallback.
- */
+async function fetchTodosFromSupabase(userId) {
+  let query = supabase.from('todos').select('*').eq('user_id', userId)
+  const { data, error } = await query.order('created_at', { ascending: false })
+
+  if (error && /pinned|column/i.test(error.message)) {
+    const fallback = await supabase
+      .from('todos')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    if (fallback.error) throw fallback.error
+    return fallback.data ?? []
+  }
+  if (error) throw error
+  return (data ?? []).sort((a, b) => Number(b.pinned) - Number(a.pinned))
+}
+
+function buildRow(payload) {
+  return {
+    title: payload.title.trim(),
+    description: payload.description?.trim() || '',
+    category: payload.category,
+    priority: payload.priority,
+    due_date: payload.due_date || null,
+    completed: false,
+    pinned: !!payload.pinned,
+  }
+}
+
 export function useTodos() {
   const { user } = useAuth()
   const [todos, setTodos] = useState([])
@@ -34,25 +60,16 @@ export function useTodos() {
 
     try {
       if (isOnline) {
-        const { data, error: err } = await supabase
-          .from('todos')
-          .select('*')
-          .eq('user_id', userId)
-          .order('pinned', { ascending: false })
-          .order('created_at', { ascending: false })
-
-        if (err) throw err
-        setTodos(data ?? [])
-        // Lokale Kopie als Offline-Cache
-        localSaveTodos(userId, data ?? [])
+        const data = await fetchTodosFromSupabase(userId)
+        setTodos(data)
+        localSaveTodos(userId, data)
       } else {
         setTodos(localGetTodos(userId))
-        setError(null)
       }
     } catch (err) {
       console.warn('Supabase-Fehler, Fallback:', err)
       setTodos(localGetTodos(userId))
-      setError('Offline-Cache aktiv. Verbindung zu Supabase prüfen.')
+      setError('Offline-Cache aktiv.')
     } finally {
       setLoading(false)
     }
@@ -62,7 +79,6 @@ export function useTodos() {
     fetchTodos()
   }, [fetchTodos])
 
-  // Realtime: Änderungen von anderen Tabs/Geräten sofort anzeigen
   useEffect(() => {
     if (!userId || !isOnline) return
 
@@ -70,12 +86,7 @@ export function useTodos() {
       .channel(`todos-${userId}`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'todos',
-          filter: `user_id=eq.${userId}`,
-        },
+        { event: '*', schema: 'public', table: 'todos', filter: `user_id=eq.${userId}` },
         (payload) => {
           if (payload.eventType === 'INSERT') {
             setTodos((prev) => {
@@ -96,34 +107,45 @@ export function useTodos() {
     }
   }, [userId, isOnline])
 
-  const createTodo = async (payload) => {
-    if (!userId) return null
+  const insertRemote = async (row) => {
+    const { data, error: err } = await supabase
+      .from('todos')
+      .insert({ ...row, user_id: userId })
+      .select()
+      .single()
 
-    const row = {
-      title: payload.title.trim(),
-      description: payload.description?.trim() || '',
-      category: payload.category,
-      priority: payload.priority,
-      due_date: payload.due_date || null,
-      completed: false,
-      pinned: !!payload.pinned,
+    if (err && /pinned|column/i.test(err.message)) {
+      const { pinned, ...withoutPin } = row
+      const retry = await supabase
+        .from('todos')
+        .insert({ ...withoutPin, user_id: userId })
+        .select()
+        .single()
+      if (retry.error) throw retry.error
+      return retry.data
     }
+    if (err) throw err
+    return data
+  }
+
+  const createTodo = async (payload) => {
+    if (!userId) throw new Error('Nicht angemeldet')
+
+    const row = buildRow(payload)
 
     if (isOnline) {
       setSyncing(true)
-      const { data, error: err } = await supabase
-        .from('todos')
-        .insert({ ...row, user_id: userId })
-        .select()
-        .single()
-      setSyncing(false)
-      if (err) {
+      try {
+        const data = await insertRemote(row)
+        setTodos((prev) => [data, ...prev])
+        return data
+      } catch (err) {
         const local = localCreateTodo(userId, row)
         setTodos((prev) => [local, ...prev])
         return local
+      } finally {
+        setSyncing(false)
       }
-      setTodos((prev) => [data, ...prev])
-      return data
     }
 
     const local = localCreateTodo(userId, row)
@@ -169,11 +191,10 @@ export function useTodos() {
   }
 
   const toggleComplete = (todo) => updateTodo(todo.id, { completed: !todo.completed })
-
   const togglePin = (todo) => updateTodo(todo.id, { pinned: !todo.pinned })
 
-  const duplicateTodo = async (todo) => {
-    return createTodo({
+  const duplicateTodo = async (todo) =>
+    createTodo({
       title: `${todo.title} (Kopie)`,
       description: todo.description,
       category: todo.category,
@@ -181,21 +202,16 @@ export function useTodos() {
       due_date: todo.due_date,
       pinned: false,
     })
-  }
 
   const deleteCompleted = async () => {
     const completed = todos.filter((t) => t.completed)
-    for (const t of completed) {
-      await deleteTodo(t.id)
-    }
+    for (const t of completed) await deleteTodo(t.id)
     return completed.length
   }
 
   const completeAllOpen = async () => {
     const open = todos.filter((t) => !t.completed)
-    for (const t of open) {
-      await updateTodo(t.id, { completed: true })
-    }
+    for (const t of open) await updateTodo(t.id, { completed: true })
     return open.length
   }
 

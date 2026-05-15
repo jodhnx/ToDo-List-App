@@ -10,15 +10,30 @@ function smartSuggestLocal(title, description = '') {
   const text = `${title} ${description}`.toLowerCase()
   let category = 'privat'
   let priority = 'mittel'
+  let due_date = null
 
-  if (/mathe|physik|schule|uni|vorlesung|hausaufgabe|klausur|prüfung/.test(text)) category = 'schule'
-  else if (/gym|training|sport|laufen|workout|fitness/.test(text)) category = 'gym'
-  else if (/arbeit|meeting|projekt|deadline|büro|kunde|präsentation/.test(text)) category = 'arbeit'
+  if (/mathe|physik|chemie|bio|schule|uni|vorlesung|hausaufgabe|klausur|prüfung|referat/.test(text)) {
+    category = 'schule'
+  } else if (/gym|training|sport|laufen|workout|fitness|kraft|cardio/.test(text)) {
+    category = 'gym'
+  } else if (/arbeit|meeting|projekt|deadline|büro|kunde|präsentation|chef|kolleg/.test(text)) {
+    category = 'arbeit'
+  } else if (/einkauf|arzt|familie|haushalt|putzen|wohnung/.test(text)) {
+    category = 'privat'
+  }
 
-  if (/dringend|wichtig|asap|sofort|morgen|heute|deadline/.test(text)) priority = 'hoch'
-  else if (/optional|später|irgendwann|mal/.test(text)) priority = 'niedrig'
+  if (/dringend|wichtig|asap|sofort|morgen|heute|deadline|überfällig/.test(text)) priority = 'hoch'
+  else if (/optional|später|irgendwann|mal|entspannt/.test(text)) priority = 'niedrig'
 
-  return { category, priority }
+  if (/heute/.test(text)) {
+    due_date = new Date().toISOString().slice(0, 10)
+  } else if (/morgen/.test(text)) {
+    const d = new Date()
+    d.setDate(d.getDate() + 1)
+    due_date = d.toISOString().slice(0, 10)
+  }
+
+  return { category, priority, ...(due_date ? { due_date } : {}) }
 }
 
 async function callOpenAI(messages, maxTokens = 400) {

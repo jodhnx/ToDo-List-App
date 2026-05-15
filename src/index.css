@@ -76,6 +76,11 @@
     border-color: rgba(0, 0, 0, 0.08);
   }
 
+  html.light [role='dialog'] {
+    background: #fff !important;
+    border-color: rgba(0, 0, 0, 0.1) !important;
+  }
+
   html.light .gradient-mesh {
     background:
       radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.1), transparent),

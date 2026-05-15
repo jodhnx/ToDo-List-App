@@ -1,48 +1,58 @@
-import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
-/** Modal-Overlay für Formulare */
+/** Modal per Portal — kein hängendes Overlay, Mobile Bottom-Sheet */
 export default function Modal({ open, onClose, title, children }) {
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <motion.div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open, onClose])
+
+  if (!open) return null
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/50"
+        aria-label="Schließen"
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        className="relative z-10 flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl border border-white/10 bg-[#161618] shadow-2xl sm:max-h-[85vh] sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-4">
+          <h2 id="modal-title" className="text-lg font-semibold text-zinc-50">
+            {title}
+          </h2>
+          <button
+            type="button"
             onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          />
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            className="glass-card relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto p-6"
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="rounded-lg p-2 text-zinc-400 hover:bg-white/10"
+            aria-label="Schließen"
           >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-zinc-100">{title}</h2>
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-lg p-1.5 text-zinc-400 transition hover:bg-white/10 hover:text-zinc-100"
-                aria-label="Schließen"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            {children}
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          {children}
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }

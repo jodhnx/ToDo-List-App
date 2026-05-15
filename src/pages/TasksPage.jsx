@@ -15,6 +15,7 @@ import TodoForm from '../components/todos/TodoForm'
 import QuickFilterBar from '../components/todos/QuickFilterBar'
 import Select from '../components/ui/Select'
 import { SORT_OPTIONS } from '../lib/constants'
+import Fab from '../components/ui/Fab'
 
 export default function TasksPage() {
   const {
@@ -41,6 +42,7 @@ export default function TasksPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [confirm, setConfirm] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('new') === '1') {
@@ -77,15 +79,24 @@ export default function TasksPage() {
   }
 
   const handleSubmit = async (data) => {
-    if (editing) {
-      await updateTodo(editing.id, data)
-      toast('Aufgabe aktualisiert', 'success')
-    } else {
-      await createTodo(data)
-      toast('Aufgabe erstellt', 'success')
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      if (editing) {
+        await updateTodo(editing.id, data)
+        toast('Aufgabe aktualisiert', 'success')
+      } else {
+        await createTodo(data)
+        toast('Aufgabe erstellt', 'success')
+      }
+      setModalOpen(false)
+      setEditing(null)
+    } catch (err) {
+      console.error(err)
+      toast(err.message || 'Speichern fehlgeschlagen', 'error')
+    } finally {
+      setSubmitting(false)
     }
-    setModalOpen(false)
-    setEditing(null)
   }
 
   const handleDelete = (id) => {
@@ -220,9 +231,12 @@ export default function TasksPage() {
         <TodoForm
           initial={editing}
           onSubmit={handleSubmit}
+          submitting={submitting}
           onCancel={() => {
-            setModalOpen(false)
-            setEditing(null)
+            if (!submitting) {
+              setModalOpen(false)
+              setEditing(null)
+            }
           }}
         />
       </Modal>
@@ -234,6 +248,8 @@ export default function TasksPage() {
         onConfirm={confirm?.onConfirm}
         onCancel={() => setConfirm(null)}
       />
+
+      <Fab onClick={openCreate} />
     </div>
   )
 }

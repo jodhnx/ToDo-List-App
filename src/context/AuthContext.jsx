@@ -7,6 +7,7 @@ import {
   localRegister,
   localUpdateProfile,
 } from '../lib/localStorage'
+import { normalizeEmail } from '../lib/authHelpers'
 
 const AuthContext = createContext(null)
 
@@ -49,11 +50,12 @@ export function AuthProvider({ children }) {
   }, [])
 
   const signUp = async (email, password, displayName) => {
+    const mail = normalizeEmail(email)
     if (mode === 'supabase' && supabase) {
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: mail,
         password,
-        options: { data: { display_name: displayName || email.split('@')[0] } },
+        options: { data: { display_name: displayName || mail.split('@')[0] } },
       })
       if (error) return { error }
       if (data.user && !data.session) {
@@ -62,7 +64,7 @@ export function AuthProvider({ children }) {
       setUser(data.user)
       return { user: data.user }
     }
-    const result = localRegister(email, password, displayName)
+    const result = localRegister(mail, password, displayName)
     if (result.error) return result
     setUser({
       id: result.user.id,
@@ -73,13 +75,14 @@ export function AuthProvider({ children }) {
   }
 
   const signIn = async (email, password) => {
+    const mail = normalizeEmail(email)
     if (mode === 'supabase' && supabase) {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error } = await supabase.auth.signInWithPassword({ email: mail, password })
       if (error) return { error }
       setUser(data.user)
       return { user: data.user }
     }
-    const result = localLogin(email, password)
+    const result = localLogin(mail, password)
     if (result.error) return result
     setUser({
       id: result.user.id,

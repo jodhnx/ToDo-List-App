@@ -9,13 +9,15 @@ import AuthPage from './pages/AuthPage'
 import DashboardPage from './pages/DashboardPage'
 import TasksPage from './pages/TasksPage'
 import SettingsPage from './pages/SettingsPage'
+import ErrorBoundary from './components/ErrorBoundary'
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <ToastProvider>
-        <AuthProvider>
-          <BrowserRouter>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <BrowserRouter>
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<AuthPage />} />
@@ -33,9 +35,10 @@ export default function App() {
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-          </BrowserRouter>
-        </AuthProvider>
-      </ToastProvider>
-    </ThemeProvider>
+            </BrowserRouter>
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   )
 }

@@ -55,15 +55,20 @@ export function localUpdateProfile(userId, { display_name }) {
   return { success: true }
 }
 
+export function normalizeEmail(email) {
+  return email.trim().toLowerCase()
+}
+
 export function localRegister(email, password, displayName) {
+  const normalized = normalizeEmail(email)
   const users = readJSON(USERS_KEY, [])
-  if (users.some((u) => u.email === email)) {
+  if (users.some((u) => u.email === normalized)) {
     return { error: { message: 'E-Mail ist bereits registriert.' } }
   }
   const user = {
     id: crypto.randomUUID(),
-    email,
-    display_name: displayName || email.split('@')[0],
+    email: normalized,
+    display_name: displayName || normalized.split('@')[0],
     passwordHash: hashPassword(password),
   }
   users.push(user)
@@ -75,8 +80,9 @@ export function localRegister(email, password, displayName) {
 }
 
 export function localLogin(email, password) {
+  const normalized = normalizeEmail(email)
   const users = readJSON(USERS_KEY, [])
-  const user = users.find((u) => u.email === email && u.passwordHash === hashPassword(password))
+  const user = users.find((u) => u.email === normalized && u.passwordHash === hashPassword(password))
   if (!user) return { error: { message: 'E-Mail oder Passwort falsch.' } }
   localSetSession(user)
   return {
