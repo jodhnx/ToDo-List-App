@@ -21,9 +21,10 @@ export function useProfile() {
       const p = await fetchProfile(user.id)
       setProfile(p)
       setNeedsUsername(!p?.username)
-    } catch {
+    } catch (err) {
       setProfile(null)
-      setNeedsUsername(true)
+      const missing = err?.code === '42P01' || /does not exist/i.test(err?.message || '')
+      setNeedsUsername(!missing)
     } finally {
       setLoading(false)
     }

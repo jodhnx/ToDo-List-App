@@ -10,7 +10,7 @@ export default function UsernameGate({ children }) {
 
   if (!isSupabaseConfigured || !enabled || loading) return children
 
-  const allowed = ['/app/profile', '/app/settings']
+  const allowed = ['/app/profile', '/app/settings', '/app/family', '/app/notifications']
   if (needsUsername && !allowed.some((p) => location.pathname.startsWith(p))) {
     return <Navigate to="/app/profile?setup=1" replace />
   }

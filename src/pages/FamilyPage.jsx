@@ -1,10 +1,13 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Plus, Users, Bell, UserPlus } from 'lucide-react'
+// motion only for list items
+import { Plus, Users, Bell, UserPlus, AlertCircle } from 'lucide-react'
 import { useGroups } from '../context/GroupsContext'
 import { useAuth } from '../context/AuthContext'
+import { useProfile } from '../hooks/useProfile'
 import { useToast } from '../context/ToastContext'
+import { checkGroupsSchema } from '../lib/groupApi'
 import GroupCard from '../components/groups/GroupCard'
 import CreateGroupModal from '../components/groups/CreateGroupModal'
 import Button from '../components/ui/Button'
@@ -13,26 +16,52 @@ import Card from '../components/ui/Card'
 export default function FamilyPage() {
   const { enabled, groups, invites, loading, inviteCount, unreadCount, createGroup, respondInvite, refreshAll } =
     useGroups()
-  const { isSupabaseConfigured } = useAuth()
+  const { isSupabaseConfigured, user } = useAuth()
+  const { needsUsername } = useProfile()
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [createOpen, setCreateOpen] = useState(false)
+  const [schemaOk, setSchemaOk] = useState(null)
+  const [schemaHint, setSchemaHint] = useState('')
+
+  useEffect(() => {
+    if (!enabled) return
+    checkGroupsSchema().then((r) => {
+      setSchemaOk(r.ok)
+      if (!r.ok && r.message) setSchemaHint(r.message)
+      else if (!r.ok && r.reason === 'missing_tables') {
+        setSchemaHint('Führe migration_v4_families.sql und migration_v4_families_fix.sql in Supabase aus.')
+      }
+    })
+  }, [enabled])
 
   if (!isSupabaseConfigured || !enabled) {
     return (
       <Card>
         <h2 className="text-lg font-semibold text-primary">Familien & Gruppen</h2>
         <p className="mt-2 text-sm text-muted">
-          Verbinde Supabase (VITE_SUPABASE_URL + ANON_KEY), führe <code className="text-indigo-300">migration_v4_families.sql</code> aus,
-          dann kannst du Gruppen erstellen und Aufgaben teilen.
+          Verbinde Supabase in der <code className="text-indigo-300">.env</code> (VITE_SUPABASE_URL + ANON_KEY),
+          dann kannst du Familien erstellen und Aufgaben teilen.
         </p>
       </Card>
     )
   }
 
+  if (!user) {
+    return (
+      <Card>
+        <p className="text-muted">Bitte melde dich an, um eine Familie zu erstellen.</p>
+      </Card>
+    )
+  }
+
   const handleCreate = async ({ name, icon }) => {
-    await createGroup({ name, icon })
+    const group = await createGroup({ name, icon })
     await refreshAll()
-    toast('Gruppe erstellt — du bist Admin', 'success')
+    toast(`„${group.name}" erstellt — du bist Admin`, 'success')
+    setCreateOpen(false)
+    navigate(`/app/family/${group.id}`)
+    return group
   }
 
   const handleInviteResponse = async (invite, accept) => {
@@ -45,6 +74,7 @@ export default function FamilyPage() {
       })
       toast(accept ? 'Beigetreten!' : 'Abgelehnt', accept ? 'success' : 'info')
       await refreshAll()
+      if (accept) navigate(`/app/family/${invite.group_id}`)
     } catch (e) {
       toast(e.message, 'error')
     }
@@ -55,7 +85,7 @@ export default function FamilyPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary">Familie & Gruppen</h1>
-          <p className="text-sm text-muted">Gemeinsame Aufgaben mit deinen Liebsten</p>
+          <p className="text-sm text-muted">Erstelle deine Familie und teile Aufgaben mit anderen</p>
         </div>
         <div className="flex gap-2">
           <Link to="/app/notifications">
@@ -68,12 +98,41 @@ export default function FamilyPage() {
               )}
             </Button>
           </Link>
-          <Button onClick={() => setCreateOpen(true)} className="gap-2">
+          <Button onClick={() => setCreateOpen(true)} className="gap-2" disabled={schemaOk === false}>
             <Plus className="h-4 w-4" />
-            Neue Gruppe
+            Familie erstellen
           </Button>
         </div>
       </div>
+
+      {schemaOk === false && (
+        <Card className="border-amber-500/30 bg-amber-500/10">
+          <div className="flex gap-3">
+            <AlertCircle className="h-5 w-5 shrink-0 text-amber-400" />
+            <div className="text-sm">
+              <p className="font-medium text-amber-200">Datenbank-Setup fehlt</p>
+              <p className="mt-1 text-muted">{schemaHint}</p>
+              <p className="mt-2 text-xs text-muted">
+                Supabase → SQL Editor → nacheinander ausführen:{' '}
+                <code className="text-indigo-300">migration_v4_families.sql</code>, dann{' '}
+                <code className="text-indigo-300">migration_v4_families_fix.sql</code>
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {needsUsername && (
+        <Card className="border-indigo-500/30 bg-indigo-500/10">
+          <p className="text-sm text-indigo-200">
+            Lege zuerst einen{' '}
+            <Link to="/app/profile" className="underline">
+              Benutzernamen
+            </Link>{' '}
+            fest, um andere per @username einzuladen. Familien erstellen funktioniert schon jetzt.
+          </p>
+        </Card>
+      )}
 
       {invites.length > 0 && (
         <Card>
@@ -106,23 +165,29 @@ export default function FamilyPage() {
       )}
 
       {loading ? (
-        <p className="text-center text-muted">Lädt Gruppen…</p>
+        <p className="text-center text-muted">Lädt Familien…</p>
       ) : groups.length === 0 ? (
         <Card className="py-12 text-center">
           <Users className="mx-auto mb-3 h-10 w-10 text-muted" />
-          <p className="text-muted">Noch keine Gruppe — erstelle eine Familie oder lade andere per Benutzername ein.</p>
-          <Button className="mt-4" onClick={() => setCreateOpen(true)}>
-            Erste Gruppe erstellen
+          <p className="text-muted">Noch keine Familie — erstelle deine eigene Gruppe und lade später Mitglieder ein.</p>
+          <Button className="mt-4 gap-2" onClick={() => setCreateOpen(true)} disabled={schemaOk === false}>
+            <Plus className="h-4 w-4" />
+            Meine Familie erstellen
           </Button>
         </Card>
       ) : (
-        <motion.ul className="space-y-3" initial="hidden" animate="show">
+        <ul className="space-y-3">
           {groups.map((g, i) => (
-            <motion.li key={g.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+            <motion.div
+              key={g.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+            >
               <GroupCard group={g} />
-            </motion.li>
+            </motion.div>
           ))}
-        </motion.ul>
+        </ul>
       )}
 
       <CreateGroupModal open={createOpen} onClose={() => setCreateOpen(false)} onCreate={handleCreate} />

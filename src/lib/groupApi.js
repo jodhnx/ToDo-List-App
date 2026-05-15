@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase'
 import { fetchProfileByUsername } from './profiles'
+import { formatGroupError } from './groupErrors'
 
 export function groupsEnabled() {
   return isSupabaseConfigured && !!supabase
@@ -16,34 +17,89 @@ async function createNotification({ user_id, type, title, body, payload = {} }) 
   })
 }
 
-/** Gruppe erstellen + Admin-Mitglied */
+/** Prüfen ob Familien-Tabellen existieren */
+export async function checkGroupsSchema() {
+  if (!supabase) return { ok: false, reason: 'no_supabase' }
+  const { error } = await supabase.from('groups').select('id').limit(1)
+  if (error) {
+    if (error.code === '42P01' || /does not exist/i.test(error.message)) {
+      return { ok: false, reason: 'missing_tables' }
+    }
+    return { ok: false, reason: 'error', message: formatGroupError(error) }
+  }
+  return { ok: true }
+}
+
+/** Gruppe erstellen + Admin-Mitglied (RPC, Fallback direkt) */
 export async function createGroup({ name, icon, userId }) {
+  if (!supabase) throw new Error('Supabase nicht verbunden')
+  if (!userId) throw new Error('Nicht angemeldet')
+
+  const trimmed = name.trim()
+  const iconVal = icon || 'home'
+
+  // Bevorzugt: sichere RPC (migration_v4_families_fix.sql)
+  const { data: rpcData, error: rpcErr } = await supabase.rpc('create_family_group', {
+    p_name: trimmed,
+    p_icon: iconVal,
+  })
+
+  if (!rpcErr && rpcData) {
+    return typeof rpcData === 'object' && rpcData.id ? rpcData : rpcData
+  }
+
+  const rpcMissing = rpcErr && /function|42883|PGRST202/i.test(rpcErr.message || '')
+
+  if (rpcErr && !rpcMissing) {
+    throw new Error(formatGroupError(rpcErr))
+  }
+
+  // Fallback: direkter Insert (mit gefixten RLS-Policies)
   const { data: group, error: gErr } = await supabase
     .from('groups')
-    .insert({ name: name.trim(), icon: icon || 'home', created_by: userId })
-    .select()
+    .insert({ name: trimmed, icon: iconVal, created_by: userId })
+    .select('id, name, icon, created_by, created_at')
     .single()
-  if (gErr) throw gErr
+
+  if (gErr) throw new Error(formatGroupError(gErr))
 
   const { error: mErr } = await supabase.from('group_members').insert({
     group_id: group.id,
     user_id: userId,
     role: 'admin',
   })
-  if (mErr) throw mErr
+
+  if (mErr) {
+    await supabase.from('groups').delete().eq('id', group.id)
+    throw new Error(formatGroupError(mErr))
+  }
+
   return group
 }
 
 export async function fetchMyGroups(userId) {
   const { data: memberships, error: mErr } = await supabase
     .from('group_members')
-    .select('role, joined_at, groups(id, name, icon, created_by, created_at)')
+    .select('group_id, role, joined_at')
     .eq('user_id', userId)
-  if (mErr) throw mErr
 
-  return (memberships || [])
-    .filter((m) => m.groups)
-    .map((m) => ({ ...m.groups, my_role: m.role, joined_at: m.joined_at }))
+  if (mErr) throw new Error(formatGroupError(mErr))
+  if (!memberships?.length) return []
+
+  const groupIds = memberships.map((m) => m.group_id)
+  const { data: groups, error: gErr } = await supabase
+    .from('groups')
+    .select('id, name, icon, created_by, created_at')
+    .in('id', groupIds)
+
+  if (gErr) throw new Error(formatGroupError(gErr))
+
+  const meta = Object.fromEntries(memberships.map((m) => [m.group_id, m]))
+  return (groups || []).map((g) => ({
+    ...g,
+    my_role: meta[g.id]?.role,
+    joined_at: meta[g.id]?.joined_at,
+  }))
 }
 
 export async function fetchGroupMembers(groupId) {

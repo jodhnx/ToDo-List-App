@@ -8,25 +8,36 @@ export default function CreateGroupModal({ open, onClose, onCreate }) {
   const [name, setName] = useState('')
   const [icon, setIcon] = useState('home')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const submit = async (e) => {
     e.preventDefault()
     if (!name.trim() || loading) return
+    setError('')
     setLoading(true)
     try {
       await onCreate({ name: name.trim(), icon })
       setName('')
       setIcon('home')
       onClose()
+    } catch (err) {
+      setError(err.message || 'Familie konnte nicht erstellt werden')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Neue Familie / Gruppe">
+    <Modal open={open} onClose={onClose} title="Neue Familie erstellen">
       <form onSubmit={submit} className="space-y-4">
-        <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="z.B. Familie Müller" required />
+        <Input
+          label="Name deiner Familie"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="z.B. Familie Müller"
+          required
+        />
+        <p className="text-xs text-muted">Du wirst automatisch Admin und kannst danach Mitglieder per @username einladen.</p>
         <div>
           <p className="mb-2 text-sm font-medium text-muted">Icon</p>
           <div className="flex flex-wrap gap-2">
@@ -47,8 +58,11 @@ export default function CreateGroupModal({ open, onClose, onCreate }) {
             ))}
           </div>
         </div>
+        {error && (
+          <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-400">{error}</p>
+        )}
         <Button type="submit" className="w-full" disabled={loading || !name.trim()}>
-          {loading ? 'Erstellen…' : 'Gruppe erstellen'}
+          {loading ? 'Erstelle Familie…' : 'Familie erstellen'}
         </Button>
       </form>
     </Modal>

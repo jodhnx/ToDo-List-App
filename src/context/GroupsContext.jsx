@@ -95,7 +95,10 @@ export function GroupsProvider({ children }) {
     refreshGroups,
     refreshInvites,
     refreshNotifications,
-    createGroup: (payload) => createGroup({ ...payload, userId }),
+    createGroup: async (payload) => {
+      if (!userId) throw new Error('Bitte zuerst anmelden')
+      return createGroup({ ...payload, userId })
+    },
     fetchMembers: fetchGroupMembers,
     inviteMember: (args) => inviteByUsername({ ...args, inviterId: userId }),
     respondInvite: (args) => respondToInvite({ ...args, userId }),
