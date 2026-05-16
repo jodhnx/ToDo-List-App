@@ -1,6 +1,6 @@
-import { Crown, Shield, UserMinus, ChevronDown } from 'lucide-react'
+import { useState } from 'react'
+import { Crown, Shield, UserMinus, MoreVertical, ShieldPlus, ShieldMinus } from 'lucide-react'
 import Avatar from '../ui/Avatar'
-import Button from '../ui/Button'
 import { getRoleMeta, canRemoveMember, canSetRoles, resolveDisplayRole } from '../../lib/groupRoles'
 
 function RoleBadge({ role }) {
@@ -38,6 +38,7 @@ export default function MemberList({
   onRoleChange,
   actionDisabled = false,
 }) {
+  const [openMenuId, setOpenMenuId] = useState(null)
   const sorted = [...members].sort((a, b) => {
     const order = { owner: 0, admin: 1, member: 2 }
     const ownerId = groupOwnerId || groupCreatedBy
@@ -53,7 +54,34 @@ export default function MemberList({
         const isSelf = m.user_id === currentUserId
         const isGroupOwner = currentUserId === (groupOwnerId || groupCreatedBy)
         const showRemove = !isSelf && onRemove && canRemoveMember(isGroupOwner ? 'owner' : myRole, role)
-        const showRoleSelect = !isSelf && role !== 'owner' && onRoleChange && canSetRoles(isGroupOwner ? 'owner' : myRole)
+        const showRoleActions = !isSelf && role !== 'owner' && onRoleChange && canSetRoles(isGroupOwner ? 'owner' : myRole)
+        const actions = [
+          showRoleActions && role === 'member'
+            ? {
+                key: 'make-admin',
+                label: 'Zum Admin machen',
+                icon: ShieldPlus,
+                onClick: () => onRoleChange(m, 'admin'),
+              }
+            : null,
+          showRoleActions && role === 'admin'
+            ? {
+                key: 'remove-admin',
+                label: 'Admin entfernen',
+                icon: ShieldMinus,
+                onClick: () => onRoleChange(m, 'member'),
+              }
+            : null,
+          showRemove
+            ? {
+                key: 'remove',
+                label: 'Mitglied entfernen',
+                icon: UserMinus,
+                danger: true,
+                onClick: () => onRemove(m),
+              }
+            : null,
+        ].filter(Boolean)
 
         return (
           <li
@@ -72,37 +100,52 @@ export default function MemberList({
               <RoleBadge role={role} />
             </div>
 
-            {!showRoleSelect && role !== 'owner' && myRole === 'admin' && (
+            {!showRoleActions && role !== 'owner' && myRole === 'admin' && (
               <p className="text-xs text-muted">Nur der Oberadmin kann Rollen ändern.</p>
             )}
 
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-              {showRoleSelect && (
+              {actions.length > 0 && (
                 <div className="relative">
-                  <select
-                    value={role === 'admin' ? 'admin' : 'member'}
-                    onChange={(e) => onRoleChange(m, e.target.value)}
+                  <button
+                    type="button"
                     disabled={actionDisabled}
-                    className="appearance-none rounded-lg border border-white/10 bg-white/5 py-1.5 pl-2 pr-7 text-xs text-primary"
+                    onClick={() => setOpenMenuId(openMenuId === m.id ? null : m.id)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-primary hover:bg-white/10 disabled:opacity-60"
+                    aria-haspopup="menu"
+                    aria-expanded={openMenuId === m.id}
                   >
-                    <option value="member">Mitglied</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+                    <MoreVertical className="h-4 w-4" />
+                    Aktionen
+                  </button>
+                  {openMenuId === m.id && (
+                    <div
+                      role="menu"
+                      className="absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#18181b] p-1 shadow-2xl"
+                    >
+                      {actions.map((action) => {
+                        const ActionIcon = action.icon
+                        return (
+                          <button
+                            key={action.key}
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setOpenMenuId(null)
+                              action.onClick()
+                            }}
+                            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-white/10 ${
+                              action.danger ? 'text-rose-300' : 'text-primary'
+                            }`}
+                          >
+                            <ActionIcon className="h-4 w-4" />
+                            {action.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-              {showRemove && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemove(m)}
-                  disabled={actionDisabled}
-                  className="gap-1 text-rose-400 hover:bg-rose-500/10"
-                >
-                  <UserMinus className="h-3.5 w-3.5" />
-                  Entfernen
-                </Button>
               )}
             </div>
           </li>

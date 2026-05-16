@@ -5,6 +5,11 @@
 ALTER TABLE public.groups
 ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
 
+-- Rollenmodell überall auf owner/admin/member bringen.
+ALTER TABLE public.group_members DROP CONSTRAINT IF EXISTS group_members_role_check;
+ALTER TABLE public.group_members ADD CONSTRAINT group_members_role_check
+  CHECK (role IN ('owner', 'admin', 'member'));
+
 -- Alte Gruppen migrieren:
 -- 1) created_by bleibt Quelle der Wahrheit, wenn vorhanden
 -- 2) sonst vorhandenes owner-Mitglied
@@ -44,16 +49,12 @@ SET created_by = owner_id
 WHERE owner_id IS NOT NULL
   AND (created_by IS NULL OR created_by <> owner_id);
 
--- Owner-Prüfung basiert jetzt auf owner_id ODER owner-Rolle.
+-- Owner-Prüfung basiert ausschließlich auf owner_id als zentrale Wahrheit.
 CREATE OR REPLACE FUNCTION public.is_group_owner(gid UUID, uid UUID)
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.groups
     WHERE id = gid AND owner_id = uid
-  )
-  OR EXISTS (
-    SELECT 1 FROM public.group_members
-    WHERE group_id = gid AND user_id = uid AND role = 'owner'
   );
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
 

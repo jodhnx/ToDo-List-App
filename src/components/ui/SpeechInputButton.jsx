@@ -13,7 +13,7 @@ export default function SpeechInputButton({
 }) {
   const recognitionRef = useRef(null)
   const silenceTimerRef = useRef(null)
-  const [supported, setSupported] = useState(false)
+  const [supported, setSupported] = useState(() => Boolean(getSpeechRecognition()))
   const [preparing, setPreparing] = useState(false)
   const [listening, setListening] = useState(false)
   const [preview, setPreview] = useState('')

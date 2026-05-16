@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2, Plus, SlidersHorizontal, ChevronDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTodosContext } from '../context/TodosContext'
@@ -41,6 +41,7 @@ export default function HomePage() {
     duplicateTodo,
   } = useTodosContext()
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [search, setSearch] = useState('')
@@ -165,8 +166,7 @@ export default function HomePage() {
         active={statFilter}
         onSelect={(key) => {
           setStatFilter(key)
-          if (key === 'done') setShowDone(true)
-          setSearchParams(key === 'open' ? {} : { view: key }, { replace: true })
+          navigate(`/app/tasks?view=${key}`)
         }}
       />
 

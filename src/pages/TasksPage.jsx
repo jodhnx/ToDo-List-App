@@ -4,7 +4,7 @@ import { AnimatePresence } from 'framer-motion'
 import { Loader2, Trash2, CheckCheck, Download, ChevronDown, SlidersHorizontal } from 'lucide-react'
 import { useTodosContext } from '../context/TodosContext'
 import { useToast } from '../context/ToastContext'
-import { applyQuickFilter, sortTodos } from '../lib/todoUtils'
+import { applyQuickFilter, isDueToday, isOverdue, sortTodos } from '../lib/todoUtils'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
@@ -34,16 +34,23 @@ export default function TasksPage() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get('view') === 'done' ? 'done' : searchParams.get('view') === 'open' ? 'open' : 'all',
+  )
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
-  const [quickFilter, setQuickFilter] = useState(searchParams.get('quick') || 'all')
+  const [quickFilter, setQuickFilter] = useState(() => {
+    const view = searchParams.get('view')
+    if (view === 'today' || view === 'overdue') return view
+    return searchParams.get('quick') || 'all'
+  })
   const [sortBy, setSortBy] = useState('due_date')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [confirm, setConfirm] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [confirmBusy, setConfirmBusy] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('new') === '1') {
@@ -53,6 +60,19 @@ export default function TasksPage() {
     }
     const q = searchParams.get('quick')
     if (q) setQuickFilter(q)
+    const view = searchParams.get('view')
+    if (view === 'open') {
+      setStatusFilter('open')
+      setQuickFilter('all')
+    }
+    if (view === 'done') {
+      setStatusFilter('done')
+      setQuickFilter('all')
+    }
+    if (view === 'today' || view === 'overdue') {
+      setStatusFilter('all')
+      setQuickFilter(view)
+    }
   }, [searchParams, setSearchParams])
 
   const filtered = useMemo(() => {
@@ -70,7 +90,9 @@ export default function TasksPage() {
       const matchesPriority = priorityFilter === 'all' || t.priority === priorityFilter
       return matchesSearch && matchesStatus && matchesCategory && matchesPriority
     })
-    list = applyQuickFilter(list, quickFilter)
+    if (quickFilter === 'today') list = list.filter(isDueToday)
+    if (quickFilter === 'overdue') list = list.filter(isOverdue)
+    list = quickFilter === 'today' || quickFilter === 'overdue' ? list : applyQuickFilter(list, quickFilter)
     return sortTodos(list, sortBy)
   }, [todos, search, statusFilter, categoryFilter, priorityFilter, quickFilter, sortBy])
 
@@ -93,7 +115,6 @@ export default function TasksPage() {
       setModalOpen(false)
       setEditing(null)
     } catch (err) {
-      console.error(err)
       toast(err.message || 'Speichern fehlgeschlagen', 'error')
     } finally {
       setSubmitting(false)
@@ -105,9 +126,15 @@ export default function TasksPage() {
       title: 'Aufgabe löschen?',
       message: 'Diese Aktion kann nicht rückgängig gemacht werden.',
       onConfirm: async () => {
-        await deleteTodo(id)
-        toast('Aufgabe gelöscht', 'info')
-        setConfirm(null)
+        if (confirmBusy) return
+        setConfirmBusy(true)
+        try {
+          await deleteTodo(id)
+          toast('Aufgabe gelöscht', 'info')
+          setConfirm(null)
+        } finally {
+          setConfirmBusy(false)
+        }
       },
     })
   }
@@ -119,9 +146,15 @@ export default function TasksPage() {
       title: `${count} erledigte Aufgaben löschen?`,
       message: 'Alle abgehakten Aufgaben werden dauerhaft entfernt.',
       onConfirm: async () => {
-        const n = await deleteCompleted()
-        toast(`${n} Aufgaben gelöscht`, 'success')
-        setConfirm(null)
+        if (confirmBusy) return
+        setConfirmBusy(true)
+        try {
+          const n = await deleteCompleted()
+          toast(`${n} Aufgaben gelöscht`, 'success')
+          setConfirm(null)
+        } finally {
+          setConfirmBusy(false)
+        }
       },
     })
   }
@@ -269,7 +302,8 @@ export default function TasksPage() {
         title={confirm?.title}
         message={confirm?.message}
         onConfirm={confirm?.onConfirm}
-        onCancel={() => setConfirm(null)}
+        onCancel={() => !confirmBusy && setConfirm(null)}
+        loading={confirmBusy}
       />
 
       <Fab onClick={openCreate} label="Neue Aufgabe" showOnDesktop />
