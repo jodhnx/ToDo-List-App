@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
-import { ArrowLeft, UserPlus, Filter, Settings, Trash2, Crown, Copy, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, UserPlus, Filter, Settings, Trash2, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useGroups } from '../context/GroupsContext'
@@ -73,6 +73,7 @@ export default function GroupDetailPage() {
   const [shoppingUnavailable, setShoppingUnavailable] = useState(false)
   const [removeTarget, setRemoveTarget] = useState(null)
   const [deleteTaskTarget, setDeleteTaskTarget] = useState(null)
+  const [taskFormOpen, setTaskFormOpen] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
   const [groupName, setGroupName] = useState('')
   const [groupIcon, setGroupIcon] = useState('home')
@@ -90,9 +91,6 @@ export default function GroupDetailPage() {
     ? resolveDisplayRole(myMembership, group?.owner_id || group?.created_by)
     : resolveDisplayRole({ role: group?.my_role, user_id: user?.id }, group?.owner_id || group?.created_by)
   const canManageGroup = myRole === 'owner'
-  const ownerMember = members.find((m) => m.user_id === (group?.owner_id || group?.created_by))
-  const ownerUsername = ownerMember?.profile?.username || group?.owner?.username
-  const lastCompleted = activity.find((item) => item.type === 'task_completed')
 
   useEffect(() => {
     setGroupName(group?.name || '')
@@ -179,6 +177,7 @@ export default function GroupDetailPage() {
         'success',
       )
       await load()
+      setTaskFormOpen(false)
     } catch (e) {
       toast(e.message, 'error')
     } finally {
@@ -370,37 +369,7 @@ export default function GroupDetailPage() {
             {members.length} Mitglieder · Dein Rang:{' '}
             {myRole === 'owner' ? 'Oberadmin' : myRole === 'admin' ? 'Admin' : 'Mitglied'}
           </p>
-          {ownerUsername && (
-            <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">
-              Erstellt von @{ownerUsername}
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-500/15 px-1.5 py-0.5 font-medium">
-                <Crown className="h-3 w-3" />
-                Owner
-              </span>
-            </p>
-          )}
           {group.description && <p className="mt-2 max-w-2xl text-sm text-muted">{group.description}</p>}
-          <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            {lastCompleted && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-emerald-300">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Zuletzt erledigt: {lastCompleted.user} · {lastCompleted.text}
-              </span>
-            )}
-            {group.invite_code && (
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard?.writeText(group.invite_code)
-                  toast('Familiencode kopiert', 'success')
-                }}
-                className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-1 text-muted hover:text-primary"
-              >
-                <Copy className="h-3.5 w-3.5" />
-                Familiencode: {group.invite_code}
-              </button>
-            )}
-          </div>
         </div>
         <div className="flex shrink-0 gap-2">
           {canManageGroup && (
@@ -431,20 +400,26 @@ export default function GroupDetailPage() {
 
       {tab === 'tasks' && (
         <>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            <Filter className="h-4 w-4 shrink-0 text-muted" />
-            {filterTabs.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFilter(f.id)}
-                className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
-                  filter === f.id ? 'bg-indigo-500/25 text-indigo-300' : 'bg-white/5 text-muted'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <Filter className="h-4 w-4 shrink-0 text-muted" />
+              {filterTabs.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setFilter(f.id)}
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
+                    filter === f.id ? 'bg-indigo-500/25 text-indigo-300' : 'bg-white/5 text-muted'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <Button type="button" size="sm" onClick={() => setTaskFormOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Aufgabe
+            </Button>
           </div>
           <ul className="space-y-3">
             <AnimatePresence mode="popLayout">
@@ -472,14 +447,6 @@ export default function GroupDetailPage() {
               </p>
             </Card>
           )}
-          <details className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-            <summary className="cursor-pointer text-sm font-medium text-primary">
-              Aufgabe hinzufügen
-            </summary>
-            <div className="mt-3">
-              <SharedTaskForm members={members} onSubmit={handleCreate} submitting={submitting} />
-            </div>
-          </details>
         </>
       )}
 
@@ -523,6 +490,10 @@ export default function GroupDetailPage() {
       )}
 
       <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} onInvite={handleInvite} />
+
+      <Modal open={taskFormOpen} onClose={() => !submitting && setTaskFormOpen(false)} title="Aufgabe hinzufügen">
+        <SharedTaskForm members={members} onSubmit={handleCreate} submitting={submitting} />
+      </Modal>
 
       <Modal open={manageOpen} onClose={() => setManageOpen(false)} title="Gruppe verwalten">
         <form onSubmit={handleRenameGroup} className="space-y-4">
