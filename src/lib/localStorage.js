@@ -2,6 +2,7 @@ const USERS_KEY = 'focus_users'
 const SESSION_KEY = 'focus_session'
 const TODOS_PREFIX = 'focus_todos_'
 const SHOPPING_PREFIX = 'focus_shopping_'
+const TODO_SYNC_PREFIX = 'focus_todo_sync_'
 
 /** Einfacher Hash für lokale Passwörter (nur Offline-Demo) */
 function hashPassword(password) {
@@ -105,6 +106,10 @@ function todosKey(userId) {
   return `${TODOS_PREFIX}${userId}`
 }
 
+function todoSyncKey(userId) {
+  return `${TODO_SYNC_PREFIX}${userId}`
+}
+
 export function localGetTodos(userId) {
   return readJSON(todosKey(userId), [])
 }
@@ -141,6 +146,24 @@ export function localUpdateTodo(userId, id, updates) {
 export function localDeleteTodo(userId, id) {
   const todos = localGetTodos(userId).filter((t) => t.id !== id)
   localSaveTodos(userId, todos)
+}
+
+export function localGetTodoSyncQueue(userId) {
+  return readJSON(todoSyncKey(userId), [])
+}
+
+export function localSaveTodoSyncQueue(userId, queue) {
+  writeJSON(todoSyncKey(userId), queue)
+}
+
+export function localQueueTodoSync(userId, op) {
+  const queue = localGetTodoSyncQueue(userId)
+  queue.push({ ...op, queued_at: new Date().toISOString() })
+  localSaveTodoSyncQueue(userId, queue)
+}
+
+export function localClearTodoSyncQueue(userId) {
+  localStorage.removeItem(todoSyncKey(userId))
 }
 
 // ——— Einkaufsliste (lokaler Fallback) ———

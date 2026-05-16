@@ -5,51 +5,17 @@ import { useShoppingList } from '../hooks/useShoppingList'
 import { useToast } from '../context/ToastContext'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
-import Select from '../components/ui/Select'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Modal from '../components/ui/Modal'
 import Fab from '../components/ui/Fab'
 import SpeechInputButton from '../components/ui/SpeechInputButton'
-
-const CATEGORIES = [
-  'Obst & Gemüse',
-  'Kühlregal',
-  'Backwaren',
-  'Getränke',
-  'Drogerie',
-  'Haushalt',
-  'Sonstiges',
-]
-
-const PRODUCT_IDEAS = [
-  ['Milch', 'Kühlregal'],
-  ['Eier', 'Kühlregal'],
-  ['Butter', 'Kühlregal'],
-  ['Joghurt', 'Kühlregal'],
-  ['Käse', 'Kühlregal'],
-  ['Bananen', 'Obst & Gemüse'],
-  ['Äpfel', 'Obst & Gemüse'],
-  ['Tomaten', 'Obst & Gemüse'],
-  ['Gurken', 'Obst & Gemüse'],
-  ['Kartoffeln', 'Obst & Gemüse'],
-  ['Brot', 'Backwaren'],
-  ['Brötchen', 'Backwaren'],
-  ['Wasser', 'Getränke'],
-  ['Saft', 'Getränke'],
-  ['Kaffee', 'Getränke'],
-  ['Zahnpasta', 'Drogerie'],
-  ['Duschgel', 'Drogerie'],
-  ['Waschmittel', 'Haushalt'],
-  ['Küchenrolle', 'Haushalt'],
-  ['Nudeln', 'Sonstiges'],
-]
-
-const categoryOptions = CATEGORIES.map((category) => ({ value: category, label: category }))
-
-function inferCategory(name) {
-  const match = PRODUCT_IDEAS.find(([product]) => product.toLowerCase() === name.trim().toLowerCase())
-  return match?.[1] || 'Sonstiges'
-}
+import {
+  DEFAULT_SHOPPING_CATEGORY,
+  SHOPPING_CATEGORIES,
+  getShoppingCategory,
+  hasOpenShoppingDuplicate,
+  inferShoppingCategory,
+} from '../lib/shoppingCatalog'
 
 function appendText(current, next) {
   const clean = String(next || '').trim()
@@ -62,8 +28,7 @@ export default function ShoppingPage() {
   const { toast } = useToast()
   const [name, setName] = useState('')
   const [quantity, setQuantity] = useState('1')
-  const [category, setCategory] = useState('Sonstiges')
-  const [note, setNote] = useState('')
+  const [category, setCategory] = useState(DEFAULT_SHOPPING_CATEGORY)
   const [search, setSearch] = useState('')
   const [showChecked, setShowChecked] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -78,11 +43,8 @@ export default function ShoppingPage() {
     [items],
   )
 
-  const suggestions = useMemo(() => {
-    const q = name.trim().toLowerCase()
-    if (!q) return PRODUCT_IDEAS.slice(0, 8)
-    return PRODUCT_IDEAS.filter(([product]) => product.toLowerCase().includes(q)).slice(0, 8)
-  }, [name])
+  const activeCategory = getShoppingCategory(category)
+  const suggestions = activeCategory.products
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -109,14 +71,13 @@ export default function ShoppingPage() {
 
   const handleNameChange = (value) => {
     setName(value)
-    if (category === 'Sonstiges') setCategory(inferCategory(value))
+    if (category === DEFAULT_SHOPPING_CATEGORY) setCategory(inferShoppingCategory(value))
   }
 
   const resetForm = () => {
     setName('')
     setQuantity('1')
-    setCategory('Sonstiges')
-    setNote('')
+    setCategory(DEFAULT_SHOPPING_CATEGORY)
   }
 
   const closeModal = () => {
@@ -126,7 +87,15 @@ export default function ShoppingPage() {
 
   const addItem = async (payload) => {
     try {
-      await createItem(payload)
+      if (hasOpenShoppingDuplicate(items, payload.name, payload.category)) {
+        toast('Dieses Produkt steht schon auf der Liste', 'info')
+        return
+      }
+      const result = await createItem(payload)
+      if (result?.duplicate) {
+        toast('Dieses Produkt steht schon auf der Liste', 'info')
+        return
+      }
       resetForm()
       setModalOpen(false)
       toast('Produkt hinzugefügt', 'success')
@@ -137,11 +106,11 @@ export default function ShoppingPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    addItem({ name, quantity, category, note })
+    addItem({ name, quantity, category, note: '' })
   }
 
-  const handleSuggestion = ([product, nextCategory]) => {
-    addItem({ name: product, quantity: '1', category: nextCategory, note: '' })
+  const handleSuggestion = (product) => {
+    addItem({ name: product, quantity: '1', category, note: '' })
   }
 
   const handleClearChecked = async () => {
@@ -340,36 +309,38 @@ export default function ShoppingPage() {
             label="Produkt diktieren"
             onTranscript={(text) => handleNameChange(appendText(name, text))}
           />
-          <div className="grid grid-cols-[1fr_1.4fr] gap-3">
+          <div className="grid gap-3 sm:grid-cols-[0.8fr_1.2fr]">
             <Input label="Menge" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="1" />
-            <Select
-              label="Kategorie"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              options={categoryOptions}
-            />
+            <div>
+              <p className="mb-2 text-sm font-medium text-muted">Kategorie auswählen</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {SHOPPING_CATEGORIES.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setCategory(item.label)}
+                    className={`min-h-12 rounded-xl border px-3 py-2 text-left text-sm font-semibold ${
+                      category === item.label ? item.color : 'border-white/10 bg-white/[0.04] text-primary'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          <Input
-            label="Notiz optional"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Marke, Laden, Angebot…"
-          />
-          <SpeechInputButton
-            label="Notiz diktieren"
-            onTranscript={(text) => setNote((current) => appendText(current, text))}
-          />
-          <div>
-            <p className="mb-2 text-xs font-medium text-muted">Schnell hinzufügen</p>
-            <div className="flex flex-wrap gap-2">
-              {suggestions.map((idea) => (
+          <div className={`rounded-2xl border p-3 ${activeCategory.color}`}>
+            <p className="text-base font-semibold">Typische Produkte: {activeCategory.label}</p>
+            <p className="mt-1 text-sm opacity-80">Einfach antippen, dann landet es direkt auf deiner Liste.</p>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {suggestions.map((product) => (
                 <button
-                  key={idea[0]}
+                  key={product}
                   type="button"
-                  onClick={() => handleSuggestion(idea)}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300 hover:border-indigo-400/50 hover:text-primary"
+                  onClick={() => handleSuggestion(product)}
+                  className="min-h-12 rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-base font-semibold text-primary hover:bg-white/15"
                 >
-                  + {idea[0]}
+                  + {product}
                 </button>
               ))}
             </div>

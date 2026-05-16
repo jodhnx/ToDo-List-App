@@ -2,9 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import {
   localCreateTodo,
+  localClearTodoSyncQueue,
   localDeleteTodo,
+  localGetTodoSyncQueue,
   localGetTodos,
+  localQueueTodoSync,
   localSaveTodos,
+  localSaveTodoSyncQueue,
   localUpdateTodo,
 } from '../lib/localStorage'
 import { useAuth } from '../context/AuthContext'
@@ -58,6 +62,11 @@ function stripUnknownColumns(row, err) {
   return next
 }
 
+function withoutLocalOnlyFields(row) {
+  const { _pendingSync, _syncState, ...rest } = row
+  return rest
+}
+
 export function useTodos() {
   const { user } = useAuth()
   const [todos, setTodos] = useState([])
@@ -67,6 +76,58 @@ export function useTodos() {
 
   const userId = user?.id
   const isOnline = isSupabaseConfigured && !!supabase
+
+  const insertRemote = useCallback(async (row) => {
+    const clean = withoutLocalOnlyFields(row)
+    const { data, error: err } = await supabase
+      .from('todos')
+      .insert({ ...clean, user_id: userId })
+      .select()
+      .single()
+
+    if (err && /pinned|due_time|reminder_at|column/i.test(err.message)) {
+      const slim = stripUnknownColumns(clean, err)
+      const retry = await supabase
+        .from('todos')
+        .insert({ ...slim, user_id: userId })
+        .select()
+        .single()
+      if (retry.error) throw retry.error
+      return retry.data
+    }
+    if (err) throw err
+    return data
+  }, [userId])
+
+  const syncQueuedTodos = useCallback(async () => {
+    if (!userId || !isOnline) return
+    const queue = localGetTodoSyncQueue(userId)
+    if (!queue.length) return
+
+    const remaining = []
+    for (const op of queue) {
+      try {
+        if (op.type === 'create') {
+          await insertRemote(op.todo)
+        } else if (op.type === 'update') {
+          const { error: err } = await supabase
+            .from('todos')
+            .update(op.updates)
+            .eq('id', op.id)
+            .eq('user_id', userId)
+          if (err) throw err
+        } else if (op.type === 'delete') {
+          const { error: err } = await supabase.from('todos').delete().eq('id', op.id).eq('user_id', userId)
+          if (err) throw err
+        }
+      } catch {
+        remaining.push(op)
+      }
+    }
+
+    if (remaining.length) localSaveTodoSyncQueue(userId, remaining)
+    else localClearTodoSyncQueue(userId)
+  }, [insertRemote, isOnline, userId])
 
   const fetchTodos = useCallback(async () => {
     if (!userId) {
@@ -80,6 +141,7 @@ export function useTodos() {
 
     try {
       if (isOnline) {
+        await syncQueuedTodos()
         const data = await fetchTodosFromSupabase(userId)
         setTodos(data)
         localSaveTodos(userId, data)
@@ -93,7 +155,7 @@ export function useTodos() {
     } finally {
       setLoading(false)
     }
-  }, [userId, isOnline])
+  }, [userId, isOnline, syncQueuedTodos])
 
   useEffect(() => {
     fetchTodos()
@@ -127,27 +189,6 @@ export function useTodos() {
     }
   }, [userId, isOnline])
 
-  const insertRemote = async (row) => {
-    const { data, error: err } = await supabase
-      .from('todos')
-      .insert({ ...row, user_id: userId })
-      .select()
-      .single()
-
-    if (err && /pinned|due_time|reminder_at|column/i.test(err.message)) {
-      const slim = stripUnknownColumns(row, err)
-      const retry = await supabase
-        .from('todos')
-        .insert({ ...slim, user_id: userId })
-        .select()
-        .single()
-      if (retry.error) throw retry.error
-      return retry.data
-    }
-    if (err) throw err
-    return data
-  }
-
   const createTodo = async (payload) => {
     if (!userId) throw new Error('Nicht angemeldet')
 
@@ -160,7 +201,8 @@ export function useTodos() {
         setTodos((prev) => [data, ...prev])
         return data
       } catch (err) {
-        const local = localCreateTodo(userId, row)
+        const local = localCreateTodo(userId, { ...row, _pendingSync: true, _syncState: 'create' })
+        localQueueTodoSync(userId, { type: 'create', todo: local })
         setTodos((prev) => [local, ...prev])
         return local
       } finally {
@@ -168,7 +210,8 @@ export function useTodos() {
       }
     }
 
-    const local = localCreateTodo(userId, row)
+    const local = localCreateTodo(userId, { ...row, _pendingSync: true, _syncState: 'create' })
+    localQueueTodoSync(userId, { type: 'create', todo: local })
     setTodos((prev) => [local, ...prev])
     return local
   }
@@ -185,7 +228,8 @@ export function useTodos() {
         .select()
         .single()
       if (err) {
-        const local = localUpdateTodo(userId, id, updates)
+        const local = localUpdateTodo(userId, id, { ...updates, _pendingSync: true, _syncState: 'update' })
+        localQueueTodoSync(userId, { type: 'update', id, updates })
         if (local) setTodos((prev) => prev.map((t) => (t.id === id ? local : t)))
         return local
       }
@@ -193,7 +237,8 @@ export function useTodos() {
       return data
     }
 
-    const local = localUpdateTodo(userId, id, updates)
+    const local = localUpdateTodo(userId, id, { ...updates, _pendingSync: true, _syncState: 'update' })
+    localQueueTodoSync(userId, { type: 'update', id, updates })
     if (local) setTodos((prev) => prev.map((t) => (t.id === id ? local : t)))
     return local
   }
@@ -203,8 +248,12 @@ export function useTodos() {
 
     if (isOnline) {
       const { error: err } = await supabase.from('todos').delete().eq('id', id).eq('user_id', userId)
-      if (err) localDeleteTodo(userId, id)
+      if (err) {
+        localQueueTodoSync(userId, { type: 'delete', id })
+        localDeleteTodo(userId, id)
+      }
     } else {
+      localQueueTodoSync(userId, { type: 'delete', id })
       localDeleteTodo(userId, id)
     }
     setTodos((prev) => prev.filter((t) => t.id !== id))

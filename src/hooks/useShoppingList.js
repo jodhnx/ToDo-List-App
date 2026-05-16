@@ -8,12 +8,13 @@ import {
   localSaveShoppingItems,
   localUpdateShoppingItem,
 } from '../lib/localStorage'
+import { DEFAULT_SHOPPING_CATEGORY, hasOpenShoppingDuplicate } from '../lib/shoppingCatalog'
 
 function buildRow(payload) {
   return {
     name: payload.name.trim(),
     quantity: payload.quantity?.trim() || '1',
-    category: payload.category || 'Sonstiges',
+    category: payload.category || DEFAULT_SHOPPING_CATEGORY,
     note: payload.note?.trim() || '',
     checked: !!payload.checked,
   }
@@ -94,6 +95,16 @@ export function useShoppingList() {
     if (!userId) throw new Error('Nicht angemeldet')
     const row = buildRow(payload)
     if (!row.name) throw new Error('Bitte Produkt eingeben')
+    const duplicate = hasOpenShoppingDuplicate(items, row.name, row.category)
+    if (duplicate) {
+      const existing = items.find(
+        (item) =>
+          !item.checked &&
+          item.name.toLowerCase() === row.name.toLowerCase() &&
+          (item.category || DEFAULT_SHOPPING_CATEGORY) === row.category,
+      )
+      return { duplicate: true, ...existing }
+    }
 
     if (isOnline) {
       setSyncing(true)
@@ -103,6 +114,7 @@ export function useShoppingList() {
           .insert({ ...row, user_id: userId })
           .select()
           .single()
+        if (err?.code === '23505') return { duplicate: true }
         if (err) throw err
         setItems((prev) => [data, ...prev])
         return data

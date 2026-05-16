@@ -355,6 +355,7 @@ export async function createGroupShoppingItem(payload) {
   }
 
   const { data, error } = await supabase.from('group_shopping_items').insert(row).select().single()
+  if (error?.code === '23505') throw new Error('Dieses Produkt steht schon auf der Familienliste')
   if (error) throw error
   return data
 }
