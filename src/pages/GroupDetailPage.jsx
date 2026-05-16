@@ -36,6 +36,7 @@ export default function GroupDetailPage() {
     fetchTasks,
     createTask,
     updateTask,
+    deleteTask,
     fetchComments,
     addComment,
     inviteMember,
@@ -63,6 +64,7 @@ export default function GroupDetailPage() {
   const [shoppingSubmitting, setShoppingSubmitting] = useState(false)
   const [shoppingUnavailable, setShoppingUnavailable] = useState(false)
   const [removeTarget, setRemoveTarget] = useState(null)
+  const [deleteTaskTarget, setDeleteTaskTarget] = useState(null)
 
   const myMembership = useMemo(
     () => members.find((m) => m.user_id === user?.id),
@@ -168,6 +170,18 @@ export default function GroupDetailPage() {
     const who = members.find((m) => m.user_id === assigneeId)
     toast(assigneeId ? `Zugewiesen an @${who?.profile?.username}` : 'Zuweisung entfernt', 'success')
     await load()
+  }
+
+  const handleDeleteTask = async () => {
+    if (!deleteTaskTarget) return
+    try {
+      await deleteTask(deleteTaskTarget.id)
+      toast('Aufgabe gelöscht', 'info')
+      setDeleteTaskTarget(null)
+      await load()
+    } catch (e) {
+      toast(e.message || 'Aufgabe konnte nicht gelöscht werden', 'error')
+    }
   }
 
   const handleInvite = async (username) => {
@@ -316,6 +330,7 @@ export default function GroupDetailPage() {
                   members={members}
                   onToggle={handleToggle}
                   onAssign={handleAssign}
+                  onDelete={setDeleteTaskTarget}
                   fetchComments={fetchComments}
                   addComment={addComment}
                 />
@@ -385,6 +400,19 @@ export default function GroupDetailPage() {
         }
         onConfirm={handleRemove}
         onCancel={() => setRemoveTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTaskTarget}
+        title="Gruppenaufgabe löschen?"
+        message={
+          deleteTaskTarget
+            ? `„${deleteTaskTarget.title}“ wird für alle Gruppenmitglieder gelöscht.`
+            : ''
+        }
+        confirmLabel="Löschen"
+        onConfirm={handleDeleteTask}
+        onCancel={() => setDeleteTaskTarget(null)}
       />
     </div>
   )

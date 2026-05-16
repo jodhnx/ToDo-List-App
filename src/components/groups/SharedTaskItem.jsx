@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Calendar, MessageCircle, User } from 'lucide-react'
+import { Calendar, MessageCircle, Trash2, User } from 'lucide-react'
 import { getGroupCategory } from '../../lib/groupConstants'
 import { formatDueLabel } from '../../lib/dateTime'
 import Avatar from '../ui/Avatar'
@@ -12,6 +12,7 @@ export default function SharedTaskItem({
   canAssign,
   onToggle,
   onAssign,
+  onDelete,
   members,
   fetchComments,
   addComment,
@@ -83,13 +84,26 @@ export default function SharedTaskItem({
             </select>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setCommentsOpen(!commentsOpen)}
-          className="rounded-lg p-2 text-muted hover:bg-white/10"
-        >
-          <MessageCircle className="h-4 w-4" />
-        </button>
+        <div className="flex shrink-0 flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => setCommentsOpen(!commentsOpen)}
+            className="rounded-lg p-2 text-muted hover:bg-white/10"
+            aria-label="Kommentare öffnen"
+          >
+            <MessageCircle className="h-4 w-4" />
+          </button>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(task)}
+              className="rounded-lg p-2 text-muted hover:bg-rose-500/10 hover:text-rose-300"
+              aria-label="Aufgabe löschen"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
       <AnimatePresence>
         {commentsOpen && (
