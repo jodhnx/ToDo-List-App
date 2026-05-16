@@ -132,7 +132,7 @@ export async function fetchGroupMembers(groupId) {
     .from('group_members')
     .select('id, role, joined_at, user_id')
     .eq('group_id', groupId)
-  if (error) throw error
+  if (error) throw new Error(formatGroupError(error))
   const members = data || []
   const ids = members.map((m) => m.user_id)
   if (!ids.length) return []
@@ -192,7 +192,7 @@ export async function fetchPendingInvites(userId) {
     .eq('invitee_id', userId)
     .eq('status', 'pending')
     .order('created_at', { ascending: false })
-  if (error) throw error
+  if (error) throw new Error(formatGroupError(error))
   return data || []
 }
 
@@ -356,7 +356,7 @@ export async function createGroupShoppingItem(payload) {
 
   const { data, error } = await supabase.from('group_shopping_items').insert(row).select().single()
   if (error?.code === '23505') throw new Error('Dieses Produkt steht schon auf der Familienliste')
-  if (error) throw error
+  if (error) throw new Error(formatGroupError(error))
   return data
 }
 
@@ -367,13 +367,13 @@ export async function updateGroupShoppingItem(id, updates) {
     .eq('id', id)
     .select()
     .single()
-  if (error) throw error
+  if (error) throw new Error(formatGroupError(error))
   return data
 }
 
 export async function deleteGroupShoppingItem(id) {
   const { error } = await supabase.from('group_shopping_items').delete().eq('id', id)
-  if (error) throw error
+  if (error) throw new Error(formatGroupError(error))
 }
 
 export async function fetchTaskComments(taskId) {

@@ -67,6 +67,10 @@ export function GroupsProvider({ children }) {
     setLoading(true)
     try {
       await Promise.all([refreshGroups(), refreshInvites(), refreshNotifications()])
+    } catch {
+      setGroups([])
+      setInvites([])
+      setNotifications([])
     } finally {
       setLoading(false)
     }

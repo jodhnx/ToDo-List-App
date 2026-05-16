@@ -33,6 +33,24 @@ function isNetworkError(err) {
   return browserIsOffline() || msg.includes('failed to fetch') || msg.includes('network') || msg.includes('timeout')
 }
 
+function formatShoppingError(err) {
+  const msg = err?.message || String(err)
+  const code = err?.code || ''
+  if (code === '42P01' || /relation.*shopping_items.*does not exist/i.test(msg)) {
+    return 'Einkaufsliste ist in Supabase noch nicht eingerichtet. Bitte die neueste Shopping-Migration ausführen.'
+  }
+  if (/column.*does not exist|schema cache/i.test(msg)) {
+    return 'Einkaufsliste ist in Supabase nicht aktuell. Bitte die neuesten Migrationen ausführen.'
+  }
+  if (code === '42501' || /row-level security/i.test(msg)) {
+    return 'Keine Berechtigung zum Speichern der Einkaufsliste. Bitte RLS-Migration prüfen und neu anmelden.'
+  }
+  if (/jwt|session|auth/i.test(msg)) {
+    return 'Sitzung abgelaufen - bitte neu anmelden.'
+  }
+  return msg
+}
+
 function withoutLocalOnlyFields(row) {
   const { _pendingSync, _syncState, duplicate, ...rest } = row
   return rest
@@ -129,7 +147,7 @@ export function useShoppingList() {
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
 
-        if (err) throw err
+        if (err) throw new Error(formatShoppingError(err))
         setItemsAndCache(data || [])
       } else {
         setItems(localGetShoppingItems(userId))
@@ -138,7 +156,7 @@ export function useShoppingList() {
     } catch (err) {
       console.warn('Shopping-Sync nicht verfügbar, lokaler Fallback:', err)
       setItems(localGetShoppingItems(userId))
-      setError('Lokaler Cache aktiv. Konto-Sync wird erneut versucht, sobald Supabase erreichbar ist.')
+      setError(formatShoppingError(err))
     } finally {
       setLoading(false)
     }
@@ -203,7 +221,7 @@ export function useShoppingList() {
         setItemsAndCache((prev) => [data, ...prev])
         return data
       } catch (err) {
-        if (!isNetworkError(err)) throw err
+        if (!isNetworkError(err)) throw new Error(formatShoppingError(err))
         const local = localCreateShoppingItem(userId, { ...row, _pendingSync: true, _syncState: 'create' })
         localQueueShoppingSync(userId, { type: 'create', item: local })
         setItemsAndCache((prev) => [local, ...prev])
@@ -234,7 +252,7 @@ export function useShoppingList() {
         setItemsAndCache((prev) => prev.map((item) => (item.id === id ? data : item)))
         return data
       }
-      if (!isNetworkError(err)) throw err
+      if (!isNetworkError(err)) throw new Error(formatShoppingError(err))
     }
 
     const local = localUpdateShoppingItem(userId, id, { ...updates, _pendingSync: true, _syncState: 'update' })
@@ -248,7 +266,7 @@ export function useShoppingList() {
     if (canReachCloud) {
       const { error: err } = await supabase.from('shopping_items').delete().eq('id', id).eq('user_id', userId)
       if (err) {
-        if (!isNetworkError(err)) throw err
+        if (!isNetworkError(err)) throw new Error(formatShoppingError(err))
         localQueueShoppingSync(userId, { type: 'delete', id })
         localDeleteShoppingItem(userId, id)
       }
