@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
-import { ArrowLeft, UserPlus, Filter } from 'lucide-react'
+import { ArrowLeft, UserPlus, Filter, Settings, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useGroups } from '../context/GroupsContext'
@@ -19,6 +19,8 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import Tabs from '../components/ui/Tabs'
+import Modal from '../components/ui/Modal'
+import Input from '../components/ui/Input'
 
 const filterTabs = [
   { id: 'all', label: 'Alle' },
@@ -47,8 +49,12 @@ export default function GroupDetailPage() {
     createShoppingItem,
     updateShoppingItem,
     deleteShoppingItem,
+    renameGroup,
+    deleteGroup,
+    refreshGroups,
   } = useGroups()
   const { toast } = useToast()
+  const navigate = useNavigate()
 
   const group = groups.find((g) => g.id === groupId)
   const { Icon } = getGroupIcon(group?.icon)
@@ -65,6 +71,10 @@ export default function GroupDetailPage() {
   const [shoppingUnavailable, setShoppingUnavailable] = useState(false)
   const [removeTarget, setRemoveTarget] = useState(null)
   const [deleteTaskTarget, setDeleteTaskTarget] = useState(null)
+  const [manageOpen, setManageOpen] = useState(false)
+  const [groupName, setGroupName] = useState('')
+  const [deleteGroupOpen, setDeleteGroupOpen] = useState(false)
+  const [savingGroup, setSavingGroup] = useState(false)
 
   const myMembership = useMemo(
     () => members.find((m) => m.user_id === user?.id),
@@ -73,6 +83,11 @@ export default function GroupDetailPage() {
   const myRole = myMembership
     ? resolveDisplayRole(myMembership, group?.created_by)
     : resolveDisplayRole({ role: group?.my_role, user_id: user?.id }, group?.created_by)
+  const canManageGroup = myRole === 'owner'
+
+  useEffect(() => {
+    setGroupName(group?.name || '')
+  }, [group?.name])
 
   const load = useCallback(async () => {
     if (!groupId) return
@@ -256,6 +271,34 @@ export default function GroupDetailPage() {
     }
   }
 
+  const handleRenameGroup = async (e) => {
+    e.preventDefault()
+    if (!canManageGroup || savingGroup) return
+    setSavingGroup(true)
+    try {
+      await renameGroup(groupId, groupName)
+      await refreshGroups()
+      toast('Gruppenname gespeichert', 'success')
+      setManageOpen(false)
+    } catch (e) {
+      toast(e.message || 'Gruppe konnte nicht umbenannt werden', 'error')
+    } finally {
+      setSavingGroup(false)
+    }
+  }
+
+  const handleDeleteGroup = async () => {
+    if (!canManageGroup) return
+    try {
+      await deleteGroup(groupId)
+      await refreshGroups()
+      toast('Gruppe gelöscht', 'info')
+      navigate('/app/family', { replace: true })
+    } catch (e) {
+      toast(e.message || 'Gruppe konnte nicht gelöscht werden', 'error')
+    }
+  }
+
   if (!group) {
     return (
       <Card>
@@ -283,10 +326,18 @@ export default function GroupDetailPage() {
             {myRole === 'owner' ? 'Oberadmin' : myRole === 'admin' ? 'Admin' : 'Mitglied'}
           </p>
         </div>
-        <Button size="sm" variant="secondary" onClick={() => setInviteOpen(true)} className="gap-1">
-          <UserPlus className="h-4 w-4" />
-          Einladen
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          {canManageGroup && (
+            <Button size="sm" variant="secondary" onClick={() => setManageOpen(true)} className="gap-1">
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Verwalten</span>
+            </Button>
+          )}
+          <Button size="sm" variant="secondary" onClick={() => setInviteOpen(true)} className="gap-1">
+            <UserPlus className="h-4 w-4" />
+            Einladen
+          </Button>
+        </div>
       </div>
 
       <GroupStats tasks={tasks} members={members} />
@@ -390,6 +441,39 @@ export default function GroupDetailPage() {
 
       <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} onInvite={handleInvite} />
 
+      <Modal open={manageOpen} onClose={() => setManageOpen(false)} title="Gruppe verwalten">
+        <form onSubmit={handleRenameGroup} className="space-y-4">
+          <Input
+            label="Gruppenname"
+            value={groupName}
+            onChange={(e) => setGroupName(e.target.value)}
+            placeholder="Name der Gruppe"
+            required
+          />
+          <Button type="submit" disabled={savingGroup || !groupName.trim()} className="w-full">
+            {savingGroup ? 'Speichern…' : 'Namen speichern'}
+          </Button>
+        </form>
+
+        <div className="mt-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4">
+          <p className="font-medium text-rose-300">Gefahrenzone</p>
+          <p className="mt-1 text-sm text-muted">
+            Gruppe löschen entfernt sie für alle Mitglieder inklusive Aufgaben und gemeinsamer Einkaufsliste.
+          </p>
+          <Button
+            variant="danger"
+            className="mt-3"
+            onClick={() => {
+              setManageOpen(false)
+              setDeleteGroupOpen(true)
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            Gruppe löschen
+          </Button>
+        </div>
+      </Modal>
+
       <ConfirmDialog
         open={!!removeTarget}
         title="Mitglied entfernen?"
@@ -413,6 +497,15 @@ export default function GroupDetailPage() {
         confirmLabel="Löschen"
         onConfirm={handleDeleteTask}
         onCancel={() => setDeleteTaskTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={deleteGroupOpen}
+        title="Gruppe wirklich löschen?"
+        message={`„${group.name}“ wird für alle Mitglieder dauerhaft gelöscht.`}
+        confirmLabel="Gruppe löschen"
+        onConfirm={handleDeleteGroup}
+        onCancel={() => setDeleteGroupOpen(false)}
       />
     </div>
   )

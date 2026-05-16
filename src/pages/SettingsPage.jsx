@@ -4,7 +4,9 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useTodosContext } from '../context/TodosContext'
 import { useInstallPrompt } from '../hooks/useInstallPrompt'
+import { useProfile } from '../hooks/useProfile'
 import { getSettings, saveSettings, getAiApiKey, setAiApiKey } from '../lib/settings'
+import { APP_BASE_VERSION, APP_VERSION } from '../lib/appVersion'
 import {
   requestNotificationPermission,
   getNotificationPermission,
@@ -32,6 +34,7 @@ export default function SettingsPage() {
   const { todos, refetch } = useTodosContext()
   const { toast } = useToast()
   const { canInstall, installed, install } = useInstallPrompt()
+  const { profile } = useProfile()
 
   const [name, setName] = useState(displayName)
   const [prefs, setPrefs] = useState(getSettings())
@@ -82,7 +85,7 @@ export default function SettingsPage() {
 
       {tab === 'profile' && (
         <Card>
-          <Section icon={User} title="Profil" description="Dein Anzeigename">
+          <Section icon={User} title="Profil" description="Dein Anzeigename und Benutzername">
             <form
               onSubmit={async (e) => {
                 e.preventDefault()
@@ -93,6 +96,12 @@ export default function SettingsPage() {
               className="space-y-4"
             >
               <Input label="Anzeigename" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input
+                label="Benutzername"
+                value={profile?.username ? `@${profile.username}` : 'Noch nicht gesetzt'}
+                disabled
+                className="opacity-50"
+              />
               <Input label="E-Mail" value={user?.email || ''} disabled className="opacity-50" />
               <Button type="submit">Speichern</Button>
             </form>
@@ -263,13 +272,20 @@ export default function SettingsPage() {
       {tab === 'creator' && (
         <Card>
           <Section icon={Code2} title="Creator" description="Über diese App">
-            <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-5">
-              <p className="text-sm text-muted">Diese App wurde erstellt von</p>
-              <h2 className="mt-1 text-2xl font-bold text-primary">Benjamin Streitriegl</h2>
-              <p className="mt-3 text-sm leading-relaxed text-muted">
-                Focus wurde entwickelt, um Aufgaben, Familienorganisation und Einkaufslisten einfach, modern und
-                übersichtlich an einem Ort zu verwalten.
-              </p>
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-5">
+                <p className="text-sm text-muted">Diese App wurde erstellt von</p>
+                <h2 className="mt-1 text-2xl font-bold text-primary">Benjamin Streitriegl</h2>
+                <p className="mt-3 text-sm leading-relaxed text-muted">
+                  Focus wurde entwickelt, um Aufgaben, Familienorganisation und Einkaufslisten einfach, modern und
+                  übersichtlich an einem Ort zu verwalten.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-sm font-medium text-primary">App-Version</p>
+                <p className="mt-1 text-2xl font-bold text-indigo-300">v{APP_VERSION}</p>
+                <p className="mt-1 text-xs text-muted">{APP_BASE_VERSION} → v{APP_VERSION}</p>
+              </div>
             </div>
           </Section>
         </Card>

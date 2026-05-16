@@ -412,6 +412,27 @@ export async function setGroupMemberRole(groupId, targetUserId, newRole) {
   if (error) throw new Error(formatGroupError(error))
 }
 
+/** Gruppe umbenennen (nur Owner/Oberadmin via RPC) */
+export async function renameGroup(groupId, name) {
+  const trimmed = String(name || '').trim()
+  if (!trimmed) throw new Error('Gruppenname erforderlich')
+
+  const { data, error } = await supabase.rpc('rename_family_group', {
+    p_group_id: groupId,
+    p_name: trimmed,
+  })
+  if (error) throw new Error(formatGroupError(error))
+  return data
+}
+
+/** Gruppe löschen (nur Owner/Oberadmin via RPC) */
+export async function deleteGroup(groupId) {
+  const { error } = await supabase.rpc('delete_family_group', {
+    p_group_id: groupId,
+  })
+  if (error) throw new Error(formatGroupError(error))
+}
+
 /** Mitglied per @username für Aufgabe finden */
 export function resolveMemberByUsername(members, username) {
   const q = String(username || '').trim().replace(/^@/, '').toLowerCase()
