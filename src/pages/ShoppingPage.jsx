@@ -8,6 +8,8 @@ import Card from '../components/ui/Card'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import Modal from '../components/ui/Modal'
+import Fab from '../components/ui/Fab'
 
 const CATEGORIES = [
   'Obst & Gemüse',
@@ -50,8 +52,7 @@ function inferCategory(name) {
 }
 
 export default function ShoppingPage() {
-  const { items, loading, syncing, error, createItem, updateItem, deleteItem, toggleItem, deleteChecked } =
-    useShoppingList()
+  const { items, loading, syncing, error, createItem, deleteItem, toggleItem, deleteChecked } = useShoppingList()
   const { toast } = useToast()
   const [name, setName] = useState('')
   const [quantity, setQuantity] = useState('1')
@@ -59,6 +60,7 @@ export default function ShoppingPage() {
   const [note, setNote] = useState('')
   const [search, setSearch] = useState('')
   const [showChecked, setShowChecked] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
 
   const stats = useMemo(
@@ -104,13 +106,23 @@ export default function ShoppingPage() {
     if (category === 'Sonstiges') setCategory(inferCategory(value))
   }
 
+  const resetForm = () => {
+    setName('')
+    setQuantity('1')
+    setCategory('Sonstiges')
+    setNote('')
+  }
+
+  const closeModal = () => {
+    resetForm()
+    setModalOpen(false)
+  }
+
   const addItem = async (payload) => {
     try {
       await createItem(payload)
-      setName('')
-      setQuantity('1')
-      setCategory('Sonstiges')
-      setNote('')
+      resetForm()
+      setModalOpen(false)
       toast('Produkt hinzugefügt', 'success')
     } catch (err) {
       toast(err.message || 'Produkt konnte nicht hinzugefügt werden', 'error')
@@ -133,7 +145,7 @@ export default function ShoppingPage() {
   }
 
   return (
-    <div className="space-y-5 pb-4">
+    <div className="space-y-5 pb-24 lg:pb-4">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm text-muted">Einkaufen ohne Zettelchaos</p>
@@ -144,15 +156,21 @@ export default function ShoppingPage() {
           </p>
           {error && <p className="mt-1 text-xs text-amber-300">{error}</p>}
         </div>
-        <Button
-          variant="secondary"
-          disabled={!stats.checked}
-          onClick={() => setConfirmClear(true)}
-          className="gap-2"
-        >
-          <Trash2 className="h-4 w-4" />
-          Erledigte löschen
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setModalOpen(true)} className="hidden gap-2 sm:inline-flex">
+            <Plus className="h-4 w-4" />
+            Produkt hinzufügen
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={!stats.checked}
+            onClick={() => setConfirmClear(true)}
+            className="gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            Erledigte löschen
+          </Button>
+        </div>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -173,50 +191,7 @@ export default function ShoppingPage() {
         </Card>
       </div>
 
-      <Card>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-[1fr_120px_180px]">
-            <Input
-              label="Produkt suchen oder eingeben"
-              value={name}
-              onChange={(e) => handleNameChange(e.target.value)}
-              placeholder="z. B. Milch, Bananen, Waschmittel"
-              required
-            />
-            <Input label="Menge" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="1" />
-            <Select
-              label="Kategorie"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              options={categoryOptions}
-            />
-          </div>
-          <Input
-            label="Notiz optional"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Marke, Laden, Angebot…"
-          />
-          <div className="flex flex-wrap gap-2">
-            {suggestions.map((idea) => (
-              <button
-                key={idea[0]}
-                type="button"
-                onClick={() => handleSuggestion(idea)}
-                className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300 hover:border-indigo-400/50 hover:text-primary"
-              >
-                + {idea[0]}
-              </button>
-            ))}
-          </div>
-          <Button type="submit" className="w-full sm:w-auto">
-            <Plus className="h-4 w-4" />
-            Hinzufügen
-          </Button>
-        </form>
-      </Card>
-
-      <div className="rounded-2xl border border-white/10 bg-surface/50 p-3">
+      <div className="rounded-2xl border border-white/10 bg-surface/50 p-3 shadow-lg shadow-black/10">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
@@ -236,7 +211,7 @@ export default function ShoppingPage() {
               </button>
             )}
           </div>
-          <label className="flex items-center gap-2 text-sm text-muted">
+          <label className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-muted">
             <input
               type="checkbox"
               checked={showChecked}
@@ -253,17 +228,33 @@ export default function ShoppingPage() {
           <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/15 py-16 text-center">
+        <div className="rounded-2xl border border-dashed border-white/15 px-4 py-16 text-center">
+          <ShoppingBasket className="mx-auto mb-3 h-10 w-10 text-indigo-300/70" />
           <p className="text-muted">
             {items.length === 0 ? 'Noch keine Produkte auf der Liste.' : 'Keine Treffer gefunden.'}
           </p>
-          <p className="mt-2 text-xs text-muted">Nutze die Suche oben oder einen Schnellvorschlag.</p>
+          <p className="mt-2 text-xs text-muted">
+            {items.length === 0
+              ? 'Tippe auf das große +, um dein erstes Produkt hinzuzufügen.'
+              : 'Ändere deine Suche oder zeige abgehakte Produkte wieder an.'}
+          </p>
+          {items.length === 0 && (
+            <Button onClick={() => setModalOpen(true)} className="mt-4">
+              <Plus className="h-4 w-4" />
+              Produkt hinzufügen
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
           {Object.entries(grouped).map(([group, groupItems]) => (
             <section key={group} className="space-y-2">
-              <h2 className="text-sm font-semibold text-muted">{group}</h2>
+              <h2 className="flex items-center justify-between text-sm font-semibold text-muted">
+                <span>{group}</span>
+                <span className="rounded-full bg-white/[0.04] px-2 py-0.5 text-xs font-normal">
+                  {groupItems.length}
+                </span>
+              </h2>
               <div className="space-y-2">
                 <AnimatePresence mode="popLayout">
                   {groupItems.map((item) => (
@@ -273,7 +264,11 @@ export default function ShoppingPage() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -16 }}
-                      className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3"
+                      className={`flex items-start gap-3 rounded-2xl border p-3 transition ${
+                        item.checked
+                          ? 'border-white/5 bg-white/[0.02]'
+                          : 'border-white/10 bg-white/[0.05] shadow-sm shadow-black/10'
+                      }`}
                     >
                       <button
                         type="button"
@@ -298,7 +293,7 @@ export default function ShoppingPage() {
                         </div>
                         {item.note && <p className="mt-1 text-xs text-muted">{item.note}</p>}
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => deleteItem(item.id)} aria-label="Löschen">
+                      <Button variant="ghost" size="sm" onClick={() => deleteItem(item.id)} aria-label="Produkt löschen">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </motion.div>
@@ -318,6 +313,60 @@ export default function ShoppingPage() {
         onConfirm={handleClearChecked}
         onCancel={() => setConfirmClear(false)}
       />
+
+      <Modal open={modalOpen} onClose={closeModal} title="Produkt hinzufügen">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Produkt suchen oder eingeben"
+            value={name}
+            onChange={(e) => handleNameChange(e.target.value)}
+            placeholder="z. B. Milch, Bananen, Waschmittel"
+            autoFocus
+            required
+          />
+          <div className="grid grid-cols-[1fr_1.4fr] gap-3">
+            <Input label="Menge" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="1" />
+            <Select
+              label="Kategorie"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              options={categoryOptions}
+            />
+          </div>
+          <Input
+            label="Notiz optional"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Marke, Laden, Angebot…"
+          />
+          <div>
+            <p className="mb-2 text-xs font-medium text-muted">Schnell hinzufügen</p>
+            <div className="flex flex-wrap gap-2">
+              {suggestions.map((idea) => (
+                <button
+                  key={idea[0]}
+                  type="button"
+                  onClick={() => handleSuggestion(idea)}
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300 hover:border-indigo-400/50 hover:text-primary"
+                >
+                  + {idea[0]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button type="submit" className="flex-1">
+              <Plus className="h-4 w-4" />
+              Hinzufügen
+            </Button>
+            <Button type="button" variant="secondary" onClick={closeModal}>
+              Abbrechen
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Fab label="Produkt hinzufügen" showOnDesktop onClick={() => setModalOpen(true)} />
     </div>
   )
 }
