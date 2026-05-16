@@ -23,6 +23,7 @@ export function getSettings() {
     rememberEmail: '',
     offlineCache: true,
     simpleMode: false,
+    themeId: 'modern-dark',
   })
 }
 

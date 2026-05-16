@@ -8,6 +8,7 @@ import { useNotifications } from '../../hooks/useNotifications'
 import UsernameGate from './UsernameGate'
 import { getSettings } from '../../lib/settings'
 import { useEffect, useState } from 'react'
+import { useTheme } from '../../context/ThemeContext'
 
 const navItems = [
   { to: '/app', end: true, icon: LayoutDashboard, label: 'Übersicht' },
@@ -31,6 +32,7 @@ function FamilyNavBadge() {
 function AppShellInner() {
   const { displayName, isOnline } = useAuth()
   const { todos, syncing } = useTodosContext()
+  const { theme } = useTheme()
   const [simpleMode, setSimpleMode] = useState(() => getSettings().simpleMode)
   useNotifications(todos)
 
@@ -40,8 +42,10 @@ function AppShellInner() {
     return () => window.removeEventListener('focus-settings-change', onSettings)
   }, [])
 
+  const largeMode = simpleMode || theme.senior
+
   return (
-    <div className={`min-h-screen gradient-mesh ${simpleMode ? 'simple-mode' : ''}`}>
+    <div className={`min-h-screen gradient-mesh transition-colors duration-300 ${largeMode ? 'simple-mode' : ''}`}>
       <Navbar />
 
       <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6">
@@ -60,8 +64,8 @@ function AppShellInner() {
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
                       isActive
-                        ? 'bg-indigo-500/20 text-indigo-300'
-                        : 'text-muted hover:bg-white/5 hover:text-primary'
+                        ? 'nav-active'
+                        : 'text-muted hover:bg-[var(--theme-accentSoft)] hover:text-primary'
                     }`
                   }
                 >
@@ -73,7 +77,7 @@ function AppShellInner() {
 
             <Link
               to="/app/profile"
-              className="mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted hover:bg-white/5 hover:text-primary"
+              className="mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted hover:bg-[var(--theme-accentSoft)] hover:text-primary"
             >
               <User className="h-4 w-4" />
               Profil
@@ -90,7 +94,7 @@ function AppShellInner() {
           </div>
         </aside>
 
-        <main className={`min-w-0 flex-1 pb-28 lg:pb-0 ${simpleMode ? 'space-y-6' : ''}`}>
+        <main className={`min-w-0 flex-1 pb-28 lg:pb-0 ${largeMode ? 'space-y-6' : ''}`}>
           <UsernameGate>
             <Outlet />
           </UsernameGate>
@@ -98,7 +102,7 @@ function AppShellInner() {
       </div>
 
       {/* Bottom Navigation Mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
+      <nav className="app-bottom-nav fixed bottom-0 left-0 right-0 z-40 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
         <div className="mx-auto grid max-w-lg grid-cols-5 gap-1 px-2 py-2">
           {navItems.map(({ to, end, icon: Icon, label, mobileLabel }) => (
             <NavLink
@@ -107,7 +111,7 @@ function AppShellInner() {
               end={end}
               className={({ isActive }) =>
                 `min-w-0 rounded-xl px-1.5 py-2 text-[10px] font-medium transition ${
-                  isActive ? 'text-indigo-400' : 'text-muted'
+                  isActive ? 'text-[var(--theme-accent)]' : 'text-muted'
                 }`
               }
             >

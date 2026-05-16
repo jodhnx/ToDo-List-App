@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { User, Bell, Sparkles, KeyRound, Shield, Wifi, WifiOff, Code2, Download } from 'lucide-react'
+import { User, Bell, Sparkles, KeyRound, Shield, Wifi, WifiOff, Code2, Download, Palette, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useTodosContext } from '../context/TodosContext'
 import { useInstallPrompt } from '../hooks/useInstallPrompt'
 import { useProfile } from '../hooks/useProfile'
+import { useTheme } from '../context/ThemeContext'
 import { getSettings, saveSettings, getAiApiKey, setAiApiKey } from '../lib/settings'
+import { APP_THEMES } from '../lib/themes'
 import { APP_BASE_VERSION, APP_CHANGELOG, APP_VERSION } from '../lib/appVersion'
 import {
   requestNotificationPermission,
@@ -21,6 +23,7 @@ import Section from '../components/ui/Section'
 
 const settingTabs = [
   { id: 'profile', label: 'Profil' },
+  { id: 'design', label: 'Design' },
   { id: 'notifications', label: 'Benachrichtigungen' },
   { id: 'ai', label: 'KI' },
   { id: 'security', label: 'Sicherheit' },
@@ -35,6 +38,7 @@ export default function SettingsPage() {
   const { toast } = useToast()
   const { canInstall, installed, install } = useInstallPrompt()
   const { profile } = useProfile()
+  const { themeId, setTheme, saving: themeSaving } = useTheme()
 
   const [name, setName] = useState(displayName)
   const [prefs, setPrefs] = useState(getSettings())
@@ -116,6 +120,52 @@ export default function SettingsPage() {
               <p className="text-sm text-muted">
                 Ideal für Familienmitglieder, die eine ruhigere Ansicht mit großen Bedienflächen möchten.
               </p>
+            </div>
+          </Section>
+        </Card>
+      )}
+
+      {tab === 'design' && (
+        <Card className="space-y-6">
+          <Section icon={Palette} title="Design & Farben" description="App Design, Theme und Darstellung auswählen">
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-accentSoft)] p-4">
+                <p className="text-sm font-medium text-primary">Theme auswählen</p>
+                <p className="mt-1 text-sm text-muted">
+                  Das Design wird lokal gespeichert und bei deinem Konto synchronisiert. Auf einem anderen Gerät wird
+                  es nach der Anmeldung automatisch geladen.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {APP_THEMES.map((theme) => (
+                  <ThemeCard
+                    key={theme.id}
+                    theme={theme}
+                    active={theme.id === themeId}
+                    disabled={themeSaving}
+                    onSelect={async () => {
+                      const result = await setTheme(theme.id)
+                      if (result?.error) {
+                        toast(
+                          'Design lokal gespeichert. Für Konto-Sync bitte die neue Theme-Migration in Supabase ausführen.',
+                          'info',
+                        )
+                      } else {
+                        toast(`Design "${theme.name}" gespeichert`, 'success')
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+
+              <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-input)] p-4">
+                <p className="text-sm font-medium text-primary">Seniorenfreundlich & High Contrast</p>
+                <p className="mt-1 text-sm text-muted">
+                  Diese Designs vergrößern zusätzlich Schrift, Bedienflächen und Rahmen für eine besonders klare
+                  Bedienung.
+                </p>
+              </div>
             </div>
           </Section>
         </Card>
@@ -318,5 +368,50 @@ function Toggle({ label, checked, onChange }) {
       <span className="text-sm text-primary">{label}</span>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 rounded text-indigo-500" />
     </label>
+  )
+}
+
+function ThemeCard({ theme, active, disabled, onSelect }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onSelect}
+      className={`group rounded-2xl border p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 ${
+        active
+          ? 'border-[var(--theme-accent)] bg-[var(--theme-accentSoft)] shadow-lg'
+          : 'border-[var(--theme-border)] bg-[var(--theme-input)] hover:border-[var(--theme-accent)]'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-primary">{theme.name}</p>
+          <p className="mt-1 text-sm text-muted">{theme.description}</p>
+        </div>
+        {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-[var(--theme-accent)]" />}
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        {theme.preview.map((color) => (
+          <span
+            key={color}
+            className="h-8 flex-1 rounded-xl border border-white/20 shadow-sm"
+            style={{ backgroundColor: color }}
+            aria-hidden="true"
+          />
+        ))}
+      </div>
+
+      <div className="mt-4 flex items-center justify-between">
+        <span className="rounded-full bg-[var(--theme-card)] px-3 py-1 text-xs font-medium text-muted">
+          {theme.mode === 'dark' ? 'Dark' : 'Light'}
+        </span>
+        {theme.senior && (
+          <span className="rounded-full bg-[var(--theme-accentSoft)] px-3 py-1 text-xs font-medium text-primary">
+            Extra groß
+          </span>
+        )}
+      </div>
+    </button>
   )
 }

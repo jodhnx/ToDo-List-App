@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion'
 
 const variants = {
-  primary: 'bg-indigo-500 hover:bg-indigo-400 text-white shadow-lg shadow-indigo-500/25',
-  secondary: 'glass-card hover:bg-white/10 text-zinc-100',
-  ghost: 'hover:bg-white/5 text-zinc-300',
+  primary: 'theme-button-primary',
+  secondary: 'glass-card theme-button-secondary',
+  ghost: 'theme-button-ghost',
   danger: 'bg-rose-500/90 hover:bg-rose-500 text-white',
 }
 

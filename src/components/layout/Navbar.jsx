@@ -12,11 +12,11 @@ export default function Navbar({ showAuth = false }) {
     <motion.header
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="sticky top-0 z-40 border-b border-white/5 bg-surface/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl"
+      className="app-navbar sticky top-0 z-40 border-b pt-[env(safe-area-inset-top)] backdrop-blur-xl"
     >
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         <Link to={user ? '/app' : '/'} className="flex items-center gap-2 font-semibold text-primary">
-          <CheckCircle2 className="h-6 w-6 text-indigo-400" />
+          <CheckCircle2 className="h-6 w-6 text-[var(--theme-accent)]" />
           <span>Focus</span>
           {isOnline && user && (
             <span className="hidden rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-400 sm:inline">
@@ -32,7 +32,7 @@ export default function Navbar({ showAuth = false }) {
               end
               className={({ isActive }) =>
                 `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
-                  isActive ? 'bg-indigo-500/20 text-indigo-300' : 'text-muted hover:text-primary'
+                  isActive ? 'nav-active' : 'text-muted hover:bg-[var(--theme-accentSoft)] hover:text-primary'
                 }`
               }
             >
@@ -43,7 +43,7 @@ export default function Navbar({ showAuth = false }) {
               to="/app/tasks"
               className={({ isActive }) =>
                 `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
-                  isActive ? 'bg-indigo-500/20 text-indigo-300' : 'text-muted hover:text-primary'
+                  isActive ? 'nav-active' : 'text-muted hover:bg-[var(--theme-accentSoft)] hover:text-primary'
                 }`
               }
             >
@@ -54,7 +54,7 @@ export default function Navbar({ showAuth = false }) {
               to="/app/family"
               className={({ isActive }) =>
                 `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
-                  isActive ? 'bg-indigo-500/20 text-indigo-300' : 'text-muted hover:text-primary'
+                  isActive ? 'nav-active' : 'text-muted hover:bg-[var(--theme-accentSoft)] hover:text-primary'
                 }`
               }
             >
@@ -70,7 +70,7 @@ export default function Navbar({ showAuth = false }) {
             <>
               <Link
                 to="/app/profile"
-                className="hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted hover:bg-white/5 hover:text-primary sm:flex"
+                className="hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted hover:bg-[var(--theme-accentSoft)] hover:text-primary sm:flex"
               >
                 <User className="h-4 w-4" />
                 <span className="max-w-[100px] truncate">{displayName}</span>

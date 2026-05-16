@@ -19,9 +19,9 @@ import ErrorBoundary from './components/ErrorBoundary'
 export default function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <ToastProvider>
-          <AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <ThemeProvider>
             <BrowserRouter>
             <Routes>
               <Route path="/" element={<Landing />} />
@@ -46,9 +46,9 @@ export default function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             </BrowserRouter>
-          </AuthProvider>
-        </ToastProvider>
-      </ThemeProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </ToastProvider>
     </ErrorBoundary>
   )
 }
