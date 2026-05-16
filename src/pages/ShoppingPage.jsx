@@ -345,18 +345,27 @@ export default function ShoppingPage() {
                         </div>
                         {item.note && <p className="mt-1 text-xs text-muted">{item.note}</p>}
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => deleteItem(item.id)} aria-label="Produkt löschen">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleFavorite(item)}
-                        aria-label={isFavorite(item.name, item.category) ? 'Favorit entfernen' : 'Als Favorit speichern'}
-                        className={isFavorite(item.name, item.category) ? 'text-amber-300' : ''}
-                      >
-                        <Star className={`h-4 w-4 ${isFavorite(item.name, item.category) ? 'fill-amber-300' : ''}`} />
-                      </Button>
+                      <div className="flex shrink-0 flex-col gap-1">
+                        <button
+                          type="button"
+                          onClick={() => toggleFavorite(item)}
+                          aria-label={isFavorite(item.name, item.category) ? 'Favorit entfernen' : 'Als Favorit speichern'}
+                          className={`flex h-10 w-10 items-center justify-center rounded-xl border transition hover:scale-105 ${
+                            isFavorite(item.name, item.category)
+                              ? 'border-amber-300/50 bg-amber-400/15 text-amber-300'
+                              : 'border-white/10 bg-white/[0.03] text-muted hover:text-amber-300'
+                          }`}
+                        >
+                          <Star
+                            className={`h-5 w-5 transition ${
+                              isFavorite(item.name, item.category) ? 'fill-amber-300' : ''
+                            }`}
+                          />
+                        </button>
+                        <Button variant="ghost" size="sm" onClick={() => deleteItem(item.id)} aria-label="Produkt löschen">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </motion.div>
                   ))}
                 </AnimatePresence>

@@ -16,7 +16,7 @@ import { DEFAULT_SHOPPING_CATEGORY, normalizeShoppingName } from '../lib/shoppin
 function formatFavoriteError(err) {
   const msg = err?.message || String(err)
   const code = err?.code || ''
-  if (code === '42P01' || /relation.*shopping_favorites.*does not exist/i.test(msg)) {
+  if (code === '42P01' || /relation.*favorite_products.*does not exist/i.test(msg)) {
     return 'Favoriten sind in Supabase noch nicht eingerichtet. Bitte die neueste Favoriten-Migration ausführen.'
   }
   if (code === '42501' || /row-level security/i.test(msg)) {
@@ -40,6 +40,24 @@ function buildFavorite(payload) {
     name: payload.name.trim(),
     category: payload.category || DEFAULT_SHOPPING_CATEGORY,
     default_quantity: payload.default_quantity?.trim() || payload.quantity?.trim() || '1',
+  }
+}
+
+function normalizeFavorite(row) {
+  if (!row) return row
+  return {
+    ...row,
+    name: row.name || row.product_name,
+    default_quantity: row.default_quantity || '1',
+    use_count: Number(row.use_count || 0),
+  }
+}
+
+function toFavoriteRow(row) {
+  return {
+    product_name: row.name,
+    category: row.category,
+    default_quantity: row.default_quantity || '1',
   }
 }
 
@@ -74,12 +92,12 @@ export function useShoppingFavorites() {
 
   const upsertRemoteFavorite = useCallback(async (row) => {
     const { data, error: err } = await supabase
-      .from('shopping_favorites')
-      .upsert({ ...row, user_id: userId }, { onConflict: 'user_id,name,category' })
+      .from('favorite_products')
+      .upsert({ ...toFavoriteRow(row), user_id: userId }, { onConflict: 'user_id,product_name,category' })
       .select()
       .single()
     if (err) throw err
-    return data
+    return normalizeFavorite(data)
   }, [userId])
 
   const syncQueuedFavorites = useCallback(async () => {
@@ -94,9 +112,9 @@ export function useShoppingFavorites() {
           await upsertRemoteFavorite(op.favorite)
         } else if (op.type === 'delete') {
           const { error: err } = await supabase
-            .from('shopping_favorites')
+            .from('favorite_products')
             .delete()
-            .eq('name', op.name)
+            .eq('product_name', op.name)
             .eq('category', op.category)
             .eq('user_id', userId)
           if (err) throw err
@@ -129,13 +147,13 @@ export function useShoppingFavorites() {
     try {
       await syncQueuedFavorites()
       const { data, error: err } = await supabase
-        .from('shopping_favorites')
+        .from('favorite_products')
         .select('*')
         .eq('user_id', userId)
         .order('use_count', { ascending: false })
-        .order('name', { ascending: true })
+        .order('product_name', { ascending: true })
       if (err) throw err
-      setFavoritesAndCache(data || [])
+      setFavoritesAndCache((data || []).map(normalizeFavorite))
     } catch (err) {
       setError(formatFavoriteError(err))
     } finally {
@@ -196,7 +214,7 @@ export function useShoppingFavorites() {
 
     if (canReachCloud) {
       const { error: err } = await supabase
-        .from('shopping_favorites')
+        .from('favorite_products')
         .delete()
         .eq('id', favorite.id)
         .eq('user_id', userId)
@@ -223,7 +241,7 @@ export function useShoppingFavorites() {
   const recordFavoriteUse = async (favorite) => {
     if (!favorite?.id || !canReachCloud) return
     await supabase
-      .from('shopping_favorites')
+      .from('favorite_products')
       .update({
         use_count: Number(favorite.use_count || 0) + 1,
         updated_at: new Date().toISOString(),
