@@ -2,10 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import {
+  localClearShoppingSyncQueue,
   localCreateShoppingItem,
   localDeleteShoppingItem,
   localGetShoppingItems,
+  localGetShoppingSyncQueue,
+  localQueueShoppingSync,
   localSaveShoppingItems,
+  localSaveShoppingSyncQueue,
   localUpdateShoppingItem,
 } from '../lib/localStorage'
 import { DEFAULT_SHOPPING_CATEGORY, hasOpenShoppingDuplicate } from '../lib/shoppingCatalog'
@@ -20,27 +24,105 @@ function buildRow(payload) {
   }
 }
 
+function browserIsOffline() {
+  return typeof navigator !== 'undefined' && navigator.onLine === false
+}
+
+function isNetworkError(err) {
+  const msg = String(err?.message || err || '').toLowerCase()
+  return browserIsOffline() || msg.includes('failed to fetch') || msg.includes('network') || msg.includes('timeout')
+}
+
+function withoutLocalOnlyFields(row) {
+  const { _pendingSync, _syncState, duplicate, ...rest } = row
+  return rest
+}
+
 export function useShoppingList() {
   const { user } = useAuth()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState(null)
+  const [networkOnline, setNetworkOnline] = useState(() => !browserIsOffline())
 
   const userId = user?.id
-  const isOnline = isSupabaseConfigured && !!supabase
+  const hasCloud = isSupabaseConfigured && !!supabase
+  const canReachCloud = hasCloud && networkOnline
+
+  const setItemsAndCache = useCallback((updater) => {
+    setItems((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      if (userId) localSaveShoppingItems(userId, next)
+      return next
+    })
+  }, [userId])
+
+  useEffect(() => {
+    const updateOnlineState = () => setNetworkOnline(!browserIsOffline())
+    window.addEventListener('online', updateOnlineState)
+    window.addEventListener('offline', updateOnlineState)
+    return () => {
+      window.removeEventListener('online', updateOnlineState)
+      window.removeEventListener('offline', updateOnlineState)
+    }
+  }, [])
+
+  const insertRemote = useCallback(async (row) => {
+    const clean = withoutLocalOnlyFields(row)
+    const { data, error: err } = await supabase
+      .from('shopping_items')
+      .insert({ ...clean, user_id: userId })
+      .select()
+      .single()
+    if (err?.code === '23505') return { duplicate: true }
+    if (err) throw err
+    return data
+  }, [userId])
+
+  const syncQueuedItems = useCallback(async () => {
+    if (!userId || !canReachCloud) return
+    const queue = localGetShoppingSyncQueue(userId)
+    if (!queue.length) return
+
+    const remaining = []
+    for (const op of queue) {
+      try {
+        if (op.type === 'create') {
+          await insertRemote(op.item)
+        } else if (op.type === 'update') {
+          const { error: err } = await supabase
+            .from('shopping_items')
+            .update({ ...op.updates, updated_at: new Date().toISOString() })
+            .eq('id', op.id)
+            .eq('user_id', userId)
+          if (err) throw err
+        } else if (op.type === 'delete') {
+          const { error: err } = await supabase.from('shopping_items').delete().eq('id', op.id).eq('user_id', userId)
+          if (err) throw err
+        }
+      } catch {
+        remaining.push(op)
+      }
+    }
+
+    if (remaining.length) localSaveShoppingSyncQueue(userId, remaining)
+    else localClearShoppingSyncQueue(userId)
+  }, [canReachCloud, insertRemote, userId])
 
   const fetchItems = useCallback(async () => {
     if (!userId) {
-      setItems([])
+      setItemsAndCache([])
       setLoading(false)
       return
     }
 
     setLoading(true)
     setError(null)
+    setItems(localGetShoppingItems(userId))
     try {
-      if (isOnline) {
+      if (canReachCloud) {
+        await syncQueuedItems()
         const { data, error: err } = await supabase
           .from('shopping_items')
           .select('*')
@@ -48,26 +130,26 @@ export function useShoppingList() {
           .order('created_at', { ascending: false })
 
         if (err) throw err
-        setItems(data || [])
-        localSaveShoppingItems(userId, data || [])
+        setItemsAndCache(data || [])
       } else {
         setItems(localGetShoppingItems(userId))
+        if (hasCloud) setError('Offline: Einkaufsliste wird später mit deinem Konto synchronisiert.')
       }
     } catch (err) {
       console.warn('Shopping-Sync nicht verfügbar, lokaler Fallback:', err)
       setItems(localGetShoppingItems(userId))
-      setError('Einkaufsliste lokal gespeichert.')
+      setError('Lokaler Cache aktiv. Konto-Sync wird erneut versucht, sobald Supabase erreichbar ist.')
     } finally {
       setLoading(false)
     }
-  }, [userId, isOnline])
+  }, [userId, hasCloud, canReachCloud, syncQueuedItems, setItemsAndCache])
 
   useEffect(() => {
     fetchItems()
   }, [fetchItems])
 
   useEffect(() => {
-    if (!userId || !isOnline) return
+    if (!userId || !canReachCloud) return
 
     const channel = supabase
       .channel(`shopping-${userId}`)
@@ -76,11 +158,11 @@ export function useShoppingList() {
         { event: '*', schema: 'public', table: 'shopping_items', filter: `user_id=eq.${userId}` },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setItems((prev) => (prev.some((item) => item.id === payload.new.id) ? prev : [payload.new, ...prev]))
+            setItemsAndCache((prev) => (prev.some((item) => item.id === payload.new.id) ? prev : [payload.new, ...prev]))
           } else if (payload.eventType === 'UPDATE') {
-            setItems((prev) => prev.map((item) => (item.id === payload.new.id ? payload.new : item)))
+            setItemsAndCache((prev) => prev.map((item) => (item.id === payload.new.id ? payload.new : item)))
           } else if (payload.eventType === 'DELETE') {
-            setItems((prev) => prev.filter((item) => item.id !== payload.old.id))
+            setItemsAndCache((prev) => prev.filter((item) => item.id !== payload.old.id))
           }
         },
       )
@@ -89,7 +171,14 @@ export function useShoppingList() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userId, isOnline])
+  }, [userId, canReachCloud, setItemsAndCache])
+
+  useEffect(() => {
+    if (!userId || !hasCloud) return
+    const onOnline = () => fetchItems()
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [fetchItems, hasCloud, userId])
 
   const createItem = async (payload) => {
     if (!userId) throw new Error('Nicht angemeldet')
@@ -106,36 +195,34 @@ export function useShoppingList() {
       return { duplicate: true, ...existing }
     }
 
-    if (isOnline) {
+    if (canReachCloud) {
       setSyncing(true)
       try {
-        const { data, error: err } = await supabase
-          .from('shopping_items')
-          .insert({ ...row, user_id: userId })
-          .select()
-          .single()
-        if (err?.code === '23505') return { duplicate: true }
-        if (err) throw err
-        setItems((prev) => [data, ...prev])
+        const data = await insertRemote(row)
+        if (data?.duplicate) return data
+        setItemsAndCache((prev) => [data, ...prev])
         return data
-      } catch {
-        const local = localCreateShoppingItem(userId, row)
-        setItems((prev) => [local, ...prev])
+      } catch (err) {
+        if (!isNetworkError(err)) throw err
+        const local = localCreateShoppingItem(userId, { ...row, _pendingSync: true, _syncState: 'create' })
+        localQueueShoppingSync(userId, { type: 'create', item: local })
+        setItemsAndCache((prev) => [local, ...prev])
         return local
       } finally {
         setSyncing(false)
       }
     }
 
-    const local = localCreateShoppingItem(userId, row)
-    setItems((prev) => [local, ...prev])
+    const local = localCreateShoppingItem(userId, { ...row, _pendingSync: true, _syncState: 'create' })
+    localQueueShoppingSync(userId, { type: 'create', item: local })
+    setItemsAndCache((prev) => [local, ...prev])
     return local
   }
 
   const updateItem = async (id, updates) => {
     if (!userId) return null
 
-    if (isOnline) {
+    if (canReachCloud) {
       const { data, error: err } = await supabase
         .from('shopping_items')
         .update({ ...updates, updated_at: new Date().toISOString() })
@@ -144,25 +231,32 @@ export function useShoppingList() {
         .select()
         .single()
       if (!err) {
-        setItems((prev) => prev.map((item) => (item.id === id ? data : item)))
+        setItemsAndCache((prev) => prev.map((item) => (item.id === id ? data : item)))
         return data
       }
+      if (!isNetworkError(err)) throw err
     }
 
-    const local = localUpdateShoppingItem(userId, id, updates)
-    if (local) setItems((prev) => prev.map((item) => (item.id === id ? local : item)))
+    const local = localUpdateShoppingItem(userId, id, { ...updates, _pendingSync: true, _syncState: 'update' })
+    localQueueShoppingSync(userId, { type: 'update', id, updates })
+    if (local) setItemsAndCache((prev) => prev.map((item) => (item.id === id ? local : item)))
     return local
   }
 
   const deleteItem = async (id) => {
     if (!userId) return
-    if (isOnline) {
+    if (canReachCloud) {
       const { error: err } = await supabase.from('shopping_items').delete().eq('id', id).eq('user_id', userId)
-      if (err) localDeleteShoppingItem(userId, id)
+      if (err) {
+        if (!isNetworkError(err)) throw err
+        localQueueShoppingSync(userId, { type: 'delete', id })
+        localDeleteShoppingItem(userId, id)
+      }
     } else {
+      localQueueShoppingSync(userId, { type: 'delete', id })
       localDeleteShoppingItem(userId, id)
     }
-    setItems((prev) => prev.filter((item) => item.id !== id))
+    setItemsAndCache((prev) => prev.filter((item) => item.id !== id))
   }
 
   const toggleItem = (item) => updateItem(item.id, { checked: !item.checked })

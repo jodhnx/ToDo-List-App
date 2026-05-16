@@ -111,7 +111,7 @@ export default function ShoppingPage() {
   }
 
   const handleSuggestion = (product) => {
-    addItem({ name: product, quantity: '1', category, note: '' })
+    addItem({ name: product, quantity: quantity || '1', category, note: '' })
   }
 
   const handleClearChecked = async () => {
@@ -320,17 +320,25 @@ export default function ShoppingPage() {
             />
           </div>
           <div className={`rounded-2xl border p-3 ${activeCategory.color}`}>
-            <p className="text-base font-semibold">Typische Produkte: {activeCategory.label}</p>
-            <p className="mt-1 text-sm opacity-80">Einfach antippen, dann landet es direkt auf deiner Liste.</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-base font-semibold">Typische Produkte: {activeCategory.label}</p>
+              <span className="rounded-full bg-black/15 px-3 py-1 text-sm font-semibold">
+                Menge: {quantity || '1'}
+              </span>
+            </div>
+            <p className="mt-1 text-sm opacity-80">
+              Erst Menge wählen, dann Produkt antippen. Die Menge wird automatisch übernommen.
+            </p>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {suggestions.map((product) => (
                 <button
                   key={product}
                   type="button"
                   onClick={() => handleSuggestion(product)}
-                  className="min-h-12 rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-base font-semibold text-primary hover:bg-white/15"
+                  className="flex min-h-14 items-center justify-between gap-2 rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-left text-base font-semibold text-primary hover:bg-white/15"
                 >
-                  + {product}
+                  <span>+ {product}</span>
+                  <span className="rounded-full bg-white/15 px-2 py-0.5 text-sm">x{quantity || '1'}</span>
                 </button>
               ))}
             </div>

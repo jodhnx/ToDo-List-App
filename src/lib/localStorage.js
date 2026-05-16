@@ -3,6 +3,7 @@ const SESSION_KEY = 'focus_session'
 const TODOS_PREFIX = 'focus_todos_'
 const SHOPPING_PREFIX = 'focus_shopping_'
 const TODO_SYNC_PREFIX = 'focus_todo_sync_'
+const SHOPPING_SYNC_PREFIX = 'focus_shopping_sync_'
 
 /** Einfacher Hash für lokale Passwörter (nur Offline-Demo) */
 function hashPassword(password) {
@@ -172,6 +173,10 @@ function shoppingKey(userId) {
   return `${SHOPPING_PREFIX}${userId}`
 }
 
+function shoppingSyncKey(userId) {
+  return `${SHOPPING_SYNC_PREFIX}${userId}`
+}
+
 export function localGetShoppingItems(userId) {
   return readJSON(shoppingKey(userId), [])
 }
@@ -190,6 +195,8 @@ export function localCreateShoppingItem(userId, data) {
     category: data.category || 'Sonstiges',
     note: data.note?.trim() || '',
     checked: false,
+    _pendingSync: !!data._pendingSync,
+    _syncState: data._syncState,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }
@@ -212,4 +219,22 @@ export function localDeleteShoppingItem(userId, id) {
     userId,
     localGetShoppingItems(userId).filter((item) => item.id !== id),
   )
+}
+
+export function localGetShoppingSyncQueue(userId) {
+  return readJSON(shoppingSyncKey(userId), [])
+}
+
+export function localSaveShoppingSyncQueue(userId, queue) {
+  writeJSON(shoppingSyncKey(userId), queue)
+}
+
+export function localQueueShoppingSync(userId, op) {
+  const queue = localGetShoppingSyncQueue(userId)
+  queue.push({ ...op, queued_at: new Date().toISOString() })
+  localSaveShoppingSyncQueue(userId, queue)
+}
+
+export function localClearShoppingSyncQueue(userId) {
+  localStorage.removeItem(shoppingSyncKey(userId))
 }

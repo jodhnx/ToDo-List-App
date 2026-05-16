@@ -116,7 +116,7 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
   }
 
   const handleSuggestion = async (name) => {
-    await submit({ name, category: form.category, quantity: '1', note: '' })
+    await submit({ name, category: form.category, quantity: form.quantity || '1', note: '' })
   }
 
   return (
@@ -289,8 +289,15 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
             />
           </div>
           <div className={`rounded-2xl border p-3 ${activeCategory.color}`}>
-            <p className="text-base font-semibold">Typische Produkte: {activeCategory.label}</p>
-            <p className="mt-1 text-sm opacity-80">Antippen reicht, alle in der Familie sehen es sofort.</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-base font-semibold">Typische Produkte: {activeCategory.label}</p>
+              <span className="rounded-full bg-black/15 px-3 py-1 text-sm font-semibold">
+                Menge: {form.quantity || '1'}
+              </span>
+            </div>
+            <p className="mt-1 text-sm opacity-80">
+              Erst Menge wählen, dann Produkt antippen. Alle in der Familie sehen es sofort.
+            </p>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {suggestions.map((product) => (
                 <button
@@ -298,9 +305,10 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
                   type="button"
                   disabled={submitting}
                   onClick={() => handleSuggestion(product)}
-                  className="min-h-12 rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-base font-semibold text-primary hover:bg-white/15 disabled:opacity-50"
+                  className="flex min-h-14 items-center justify-between gap-2 rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-left text-base font-semibold text-primary hover:bg-white/15 disabled:opacity-50"
                 >
-                  + {product}
+                  <span>+ {product}</span>
+                  <span className="rounded-full bg-white/15 px-2 py-0.5 text-sm">x{form.quantity || '1'}</span>
                 </button>
               ))}
             </div>

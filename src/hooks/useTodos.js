@@ -67,15 +67,44 @@ function withoutLocalOnlyFields(row) {
   return rest
 }
 
+function browserIsOffline() {
+  return typeof navigator !== 'undefined' && navigator.onLine === false
+}
+
+function isNetworkError(err) {
+  const msg = String(err?.message || err || '').toLowerCase()
+  return browserIsOffline() || msg.includes('failed to fetch') || msg.includes('network') || msg.includes('timeout')
+}
+
 export function useTodos() {
   const { user } = useAuth()
   const [todos, setTodos] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [syncing, setSyncing] = useState(false)
+  const [networkOnline, setNetworkOnline] = useState(() => !browserIsOffline())
 
   const userId = user?.id
-  const isOnline = isSupabaseConfigured && !!supabase
+  const hasCloud = isSupabaseConfigured && !!supabase
+  const canReachCloud = hasCloud && networkOnline
+
+  const setTodosAndCache = useCallback((updater) => {
+    setTodos((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      if (userId) localSaveTodos(userId, next)
+      return next
+    })
+  }, [userId])
+
+  useEffect(() => {
+    const updateOnlineState = () => setNetworkOnline(!browserIsOffline())
+    window.addEventListener('online', updateOnlineState)
+    window.addEventListener('offline', updateOnlineState)
+    return () => {
+      window.removeEventListener('online', updateOnlineState)
+      window.removeEventListener('offline', updateOnlineState)
+    }
+  }, [])
 
   const insertRemote = useCallback(async (row) => {
     const clean = withoutLocalOnlyFields(row)
@@ -100,7 +129,7 @@ export function useTodos() {
   }, [userId])
 
   const syncQueuedTodos = useCallback(async () => {
-    if (!userId || !isOnline) return
+    if (!userId || !canReachCloud) return
     const queue = localGetTodoSyncQueue(userId)
     if (!queue.length) return
 
@@ -127,42 +156,45 @@ export function useTodos() {
 
     if (remaining.length) localSaveTodoSyncQueue(userId, remaining)
     else localClearTodoSyncQueue(userId)
-  }, [insertRemote, isOnline, userId])
+  }, [insertRemote, canReachCloud, userId])
 
   const fetchTodos = useCallback(async () => {
     if (!userId) {
-      setTodos([])
+      setTodosAndCache([])
       setLoading(false)
       return
     }
 
     setLoading(true)
     setError(null)
+    const cached = localGetTodos(userId)
+    setTodos(cached)
 
     try {
-      if (isOnline) {
+      if (canReachCloud) {
         await syncQueuedTodos()
         const data = await fetchTodosFromSupabase(userId)
-        setTodos(data)
+        setTodosAndCache(data)
         localSaveTodos(userId, data)
       } else {
         setTodos(localGetTodos(userId))
+        if (hasCloud) setError('Offline: Änderungen werden später mit deinem Konto synchronisiert.')
       }
     } catch (err) {
       console.warn('Supabase-Fehler, Fallback:', err)
       setTodos(localGetTodos(userId))
-      setError('Offline-Cache aktiv.')
+      setError('Lokaler Cache aktiv. Konto-Sync wird erneut versucht, sobald Supabase erreichbar ist.')
     } finally {
       setLoading(false)
     }
-  }, [userId, isOnline, syncQueuedTodos])
+  }, [userId, hasCloud, canReachCloud, syncQueuedTodos, setTodosAndCache])
 
   useEffect(() => {
     fetchTodos()
   }, [fetchTodos])
 
   useEffect(() => {
-    if (!userId || !isOnline) return
+    if (!userId || !canReachCloud) return
 
     const channel = supabase
       .channel(`todos-${userId}`)
@@ -171,14 +203,14 @@ export function useTodos() {
         { event: '*', schema: 'public', table: 'todos', filter: `user_id=eq.${userId}` },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setTodos((prev) => {
+            setTodosAndCache((prev) => {
               if (prev.some((t) => t.id === payload.new.id)) return prev
               return [payload.new, ...prev]
             })
           } else if (payload.eventType === 'UPDATE') {
-            setTodos((prev) => prev.map((t) => (t.id === payload.new.id ? payload.new : t)))
+            setTodosAndCache((prev) => prev.map((t) => (t.id === payload.new.id ? payload.new : t)))
           } else if (payload.eventType === 'DELETE') {
-            setTodos((prev) => prev.filter((t) => t.id !== payload.old.id))
+            setTodosAndCache((prev) => prev.filter((t) => t.id !== payload.old.id))
           }
         },
       )
@@ -187,23 +219,31 @@ export function useTodos() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userId, isOnline])
+  }, [userId, canReachCloud, setTodosAndCache])
+
+  useEffect(() => {
+    if (!userId || !hasCloud) return
+    const onOnline = () => fetchTodos()
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [fetchTodos, hasCloud, userId])
 
   const createTodo = async (payload) => {
     if (!userId) throw new Error('Nicht angemeldet')
 
     const row = buildRow(payload)
 
-    if (isOnline) {
+    if (canReachCloud) {
       setSyncing(true)
       try {
         const data = await insertRemote(row)
-        setTodos((prev) => [data, ...prev])
+        setTodosAndCache((prev) => [data, ...prev])
         return data
       } catch (err) {
+        if (!isNetworkError(err)) throw err
         const local = localCreateTodo(userId, { ...row, _pendingSync: true, _syncState: 'create' })
         localQueueTodoSync(userId, { type: 'create', todo: local })
-        setTodos((prev) => [local, ...prev])
+        setTodosAndCache((prev) => [local, ...prev])
         return local
       } finally {
         setSyncing(false)
@@ -212,14 +252,14 @@ export function useTodos() {
 
     const local = localCreateTodo(userId, { ...row, _pendingSync: true, _syncState: 'create' })
     localQueueTodoSync(userId, { type: 'create', todo: local })
-    setTodos((prev) => [local, ...prev])
+    setTodosAndCache((prev) => [local, ...prev])
     return local
   }
 
   const updateTodo = async (id, updates) => {
     if (!userId) return null
 
-    if (isOnline) {
+    if (canReachCloud) {
       const { data, error: err } = await supabase
         .from('todos')
         .update(updates)
@@ -228,27 +268,29 @@ export function useTodos() {
         .select()
         .single()
       if (err) {
+        if (!isNetworkError(err)) throw err
         const local = localUpdateTodo(userId, id, { ...updates, _pendingSync: true, _syncState: 'update' })
         localQueueTodoSync(userId, { type: 'update', id, updates })
-        if (local) setTodos((prev) => prev.map((t) => (t.id === id ? local : t)))
+        if (local) setTodosAndCache((prev) => prev.map((t) => (t.id === id ? local : t)))
         return local
       }
-      setTodos((prev) => prev.map((t) => (t.id === id ? data : t)))
+      setTodosAndCache((prev) => prev.map((t) => (t.id === id ? data : t)))
       return data
     }
 
     const local = localUpdateTodo(userId, id, { ...updates, _pendingSync: true, _syncState: 'update' })
     localQueueTodoSync(userId, { type: 'update', id, updates })
-    if (local) setTodos((prev) => prev.map((t) => (t.id === id ? local : t)))
+    if (local) setTodosAndCache((prev) => prev.map((t) => (t.id === id ? local : t)))
     return local
   }
 
   const deleteTodo = async (id) => {
     if (!userId) return
 
-    if (isOnline) {
+    if (canReachCloud) {
       const { error: err } = await supabase.from('todos').delete().eq('id', id).eq('user_id', userId)
       if (err) {
+        if (!isNetworkError(err)) throw err
         localQueueTodoSync(userId, { type: 'delete', id })
         localDeleteTodo(userId, id)
       }
@@ -256,7 +298,7 @@ export function useTodos() {
       localQueueTodoSync(userId, { type: 'delete', id })
       localDeleteTodo(userId, id)
     }
-    setTodos((prev) => prev.filter((t) => t.id !== id))
+    setTodosAndCache((prev) => prev.filter((t) => t.id !== id))
   }
 
   const toggleComplete = (todo) => updateTodo(todo.id, { completed: !todo.completed })
@@ -291,7 +333,7 @@ export function useTodos() {
     loading,
     error,
     syncing,
-    isOnline,
+    isOnline: hasCloud,
     createTodo,
     updateTodo,
     deleteTodo,
