@@ -5,16 +5,17 @@ import { useShoppingList } from '../hooks/useShoppingList'
 import { useToast } from '../context/ToastContext'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
+import Select from '../components/ui/Select'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Modal from '../components/ui/Modal'
 import Fab from '../components/ui/Fab'
 import SpeechInputButton from '../components/ui/SpeechInputButton'
 import {
   DEFAULT_SHOPPING_CATEGORY,
-  SHOPPING_CATEGORIES,
   getShoppingCategory,
   hasOpenShoppingDuplicate,
   inferShoppingCategory,
+  shoppingCategoryOptions,
 } from '../lib/shoppingCatalog'
 
 function appendText(current, next) {
@@ -311,23 +312,12 @@ export default function ShoppingPage() {
           />
           <div className="grid gap-3 sm:grid-cols-[0.8fr_1.2fr]">
             <Input label="Menge" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="1" />
-            <div>
-              <p className="mb-2 text-sm font-medium text-muted">Kategorie auswählen</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {SHOPPING_CATEGORIES.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setCategory(item.label)}
-                    className={`min-h-12 rounded-xl border px-3 py-2 text-left text-sm font-semibold ${
-                      category === item.label ? item.color : 'border-white/10 bg-white/[0.04] text-primary'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <Select
+              label="Kategorie auswählen"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              options={shoppingCategoryOptions}
+            />
           </div>
           <div className={`rounded-2xl border p-3 ${activeCategory.color}`}>
             <p className="text-base font-semibold">Typische Produkte: {activeCategory.label}</p>

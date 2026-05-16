@@ -6,14 +6,15 @@ import Button from '../ui/Button'
 import Fab from '../ui/Fab'
 import Input from '../ui/Input'
 import Modal from '../ui/Modal'
+import Select from '../ui/Select'
 import SpeechInputButton from '../ui/SpeechInputButton'
 import { useToast } from '../../context/ToastContext'
 import {
   DEFAULT_SHOPPING_CATEGORY,
-  SHOPPING_CATEGORIES,
   getShoppingCategory,
   hasOpenShoppingDuplicate,
   inferShoppingCategory,
+  shoppingCategoryOptions,
 } from '../../lib/shoppingCatalog'
 
 function emptyForm() {
@@ -280,23 +281,12 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
           <SpeechInputButton label="Produkt diktieren" onTranscript={(text) => setSpeechField('name', text)} />
           <div className="grid gap-3 sm:grid-cols-[0.8fr_1.2fr]">
             <Input label="Menge" value={form.quantity} onChange={change('quantity')} placeholder="1" />
-            <div>
-              <p className="mb-2 text-sm font-medium text-muted">Kategorie auswählen</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {SHOPPING_CATEGORIES.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setForm((current) => ({ ...current, category: item.label }))}
-                    className={`min-h-12 rounded-xl border px-3 py-2 text-left text-sm font-semibold ${
-                      form.category === item.label ? item.color : 'border-white/10 bg-white/[0.04] text-primary'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <Select
+              label="Kategorie auswählen"
+              value={form.category}
+              onChange={change('category')}
+              options={shoppingCategoryOptions}
+            />
           </div>
           <div className={`rounded-2xl border p-3 ${activeCategory.color}`}>
             <p className="text-base font-semibold">Typische Produkte: {activeCategory.label}</p>
