@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { User, Bell, Sparkles, KeyRound, Shield, Wifi, WifiOff, Code2 } from 'lucide-react'
+import { User, Bell, Sparkles, KeyRound, Shield, Wifi, WifiOff, Code2, Download } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useTodosContext } from '../context/TodosContext'
+import { useInstallPrompt } from '../hooks/useInstallPrompt'
 import { getSettings, saveSettings, getAiApiKey, setAiApiKey } from '../lib/settings'
 import {
   requestNotificationPermission,
@@ -30,6 +31,7 @@ export default function SettingsPage() {
     useAuth()
   const { todos, refetch } = useTodosContext()
   const { toast } = useToast()
+  const { canInstall, installed, install } = useInstallPrompt()
 
   const [name, setName] = useState(displayName)
   const [prefs, setPrefs] = useState(getSettings())
@@ -139,6 +141,30 @@ export default function SettingsPage() {
 
       {tab === 'security' && (
         <Card className="space-y-6">
+          <Section icon={Download} title="App installieren" description="Focus wie eine native App öffnen">
+            <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div>
+                <p className="font-medium text-primary">
+                  {installed ? 'Focus ist als App installiert' : 'Focus zum Home-Bildschirm hinzufügen'}
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  Auf iPhone: In Safari teilen → „Zum Home-Bildschirm“. Danach startet Focus fullscreen ohne URL-Bar
+                  und ohne Safari-Bottom-Bar.
+                </p>
+              </div>
+              {canInstall && (
+                <Button
+                  onClick={async () => {
+                    const accepted = await install()
+                    toast(accepted ? 'Installation gestartet' : 'Installation abgebrochen', accepted ? 'success' : 'info')
+                  }}
+                >
+                  App installieren
+                </Button>
+              )}
+            </div>
+          </Section>
+
           <Section icon={Shield} title="Offline & Datenschutz" description="Aufgaben bleiben auf diesem Gerät gespeichert">
             <div className="space-y-4">
               <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-4">

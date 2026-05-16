@@ -12,7 +12,7 @@ export default function Navbar({ showAuth = false }) {
     <motion.header
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="sticky top-0 z-40 border-b border-white/5 bg-surface/80 backdrop-blur-xl"
+      className="sticky top-0 z-40 border-b border-white/5 bg-surface/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl"
     >
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         <Link to={user ? '/app' : '/'} className="flex items-center gap-2 font-semibold text-primary">

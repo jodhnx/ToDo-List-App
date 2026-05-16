@@ -66,6 +66,7 @@ npm run build
 
 | Feature | Beschreibung |
 |--------|----------------|
+| **Installierbare PWA** | iPhone/Android Home-Screen-App mit Standalone-Fullscreen, Manifest, Icons, Splash-Screens und Service Worker |
 | **Multi-User Online** | Supabase Auth + RLS — jeder sieht nur eigene Todos |
 | **Realtime-Sync** | Änderungen erscheinen sofort auf anderen Geräten |
 | **Dashboard** | Stats, Kategorie-Chart, Prioritäten, Überfällig/Heute |
@@ -90,9 +91,23 @@ npm run build
 2. In der App: **Familie** → Gruppe erstellen → Mitglieder per **@benutzername** einladen
 3. Geteilte Aufgaben: Kategorien (Einkauf, Putzen, …), Zuweisung, Kommentare, Benachrichtigungen
 4. Gemeinsame Einkaufsliste: `supabase/migration_v7_group_shopping_items.sql` ausführen, dann in einer Gruppe den Tab **Einkauf** öffnen
-4. **Profil** (`/app/profile`): Benutzername & Anzeigename (Pflicht nach Google-Login)
+5. **Profil** (`/app/profile`): Benutzername & Anzeigename (Pflicht nach Google-Login)
 
 Ohne Supabase bleiben **persönliche Aufgaben** lokal nutzbar; Gruppen erfordern Cloud.
+
+---
+
+## PWA / Installation
+
+Focus ist als PWA konfiguriert:
+
+- `public/manifest.json` für Android/Chrome und iOS Home-Screen-Metadaten
+- Apple Mobile Web App Tags in `index.html`
+- Apple Touch Icons und Splash-Screens in `public/icons` und `public/splash`
+- `vite-plugin-pwa` mit eigenem `src/sw.js`
+- Start im Standalone-Modus über `/app`
+
+Auf iPhone: In Safari öffnen → Teilen → **Zum Home-Bildschirm**. Danach startet Focus ohne Safari-URL-Bar und ohne Safari-Bottom-Bar.
 
 ---
 

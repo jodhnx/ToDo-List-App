@@ -89,7 +89,7 @@ function AppShellInner() {
       </div>
 
       {/* Bottom Navigation Mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-surface/90 backdrop-blur-xl lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
         <div className="mx-auto flex max-w-lg justify-around px-2 py-2">
           {navItems.map(({ to, end, icon: Icon, label }) => (
             <NavLink

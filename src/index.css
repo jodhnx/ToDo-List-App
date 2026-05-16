@@ -8,19 +8,38 @@
 
 @layer base {
   html {
+    min-height: 100%;
+    background-color: var(--color-surface);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    text-size-adjust: 100%;
+    overscroll-behavior-y: none;
   }
 
   body {
     @apply min-h-screen antialiased;
+    min-height: 100dvh;
     background-color: var(--color-surface);
     color: #fafafa;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+    padding: 0;
+    margin: 0;
+  }
+
+  #root {
+    min-height: 100dvh;
+    background-color: var(--color-surface);
   }
 
   html.light body {
     background-color: #f4f5f7;
     color: #0f0f10;
+  }
+
+  html.light,
+  html.light #root {
+    background-color: #f4f5f7;
   }
 }
 
