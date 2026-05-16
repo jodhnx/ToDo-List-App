@@ -126,15 +126,22 @@ export function AuthProvider({ children }) {
     return { error: { message: 'Passwort-Reset ist derzeit nicht verfügbar.' } }
   }
 
-  const signInWithGoogle = async () => {
-    if (!supabase) return { error: { message: 'Google-Login nicht verfügbar.' } }
+  const signInWithOAuth = async (provider) => {
+    if (!supabase) return { error: { message: 'Social Login nicht verfügbar.' } }
+    const providerName = provider === 'apple' ? 'Apple' : 'Google'
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/app` },
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/app`,
+        queryParams: provider === 'google' ? { prompt: 'select_account' } : undefined,
+      },
     })
     if (error) return { error }
-    return { success: true }
+    return { success: true, provider: providerName }
   }
+
+  const signInWithGoogle = () => signInWithOAuth('google')
+  const signInWithApple = () => signInWithOAuth('apple')
 
   const updatePassword = async (newPassword) => {
     if (!supabase) return { error: { message: 'Nicht verfügbar.' } }
@@ -175,6 +182,7 @@ export function AuthProvider({ children }) {
         resetPassword,
         updatePassword,
         signInWithGoogle,
+        signInWithApple,
         updateProfile,
         displayName,
         mode,

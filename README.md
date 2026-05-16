@@ -24,8 +24,11 @@ Damit sich **andere Nutzer registrieren** und von überall zugreifen können, br
 3. Falls Tabelle schon existiert → `migration_v2.sql`, `migration_v3_due_time.sql`, `migration_v4_families.sql`, `migration_v4_families_fix.sql`, `migration_v5_roles.sql`, `migration_v6_shopping_items.sql`, `migration_v7_group_shopping_items.sql`, `migration_v8_task_reminders.sql`
 4. **Authentication → URL Configuration**:
   - **Site URL:** `https://deine-app.vercel.app`
-  - **Redirect URLs:** `https://deine-app.vercel.app/`**, `http://localhost:5173/**`
-5. Optional: E-Mail-Bestätigung für Entwicklung deaktivieren
+  - **Redirect URLs:** `https://deine-app.vercel.app/**`, `http://localhost:5173/**`
+5. **Authentication → Providers**:
+   - Google aktivieren und Client ID/Secret aus der Google Cloud Console eintragen
+   - Apple aktivieren und Apple Services ID/Team ID/Key ID/Private Key eintragen
+6. Optional: E-Mail-Bestätigung für Entwicklung deaktivieren
 
 ### 2. Umgebungsvariablen
 
