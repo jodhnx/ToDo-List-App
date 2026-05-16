@@ -21,7 +21,7 @@ Damit sich **andere Nutzer registrieren** und von überall zugreifen können, br
 
 1. Projekt auf [supabase.com](https://supabase.com) erstellen
 2. **SQL Editor** → `supabase/schema.sql` ausführen
-3. Falls Tabelle schon existiert → `migration_v2.sql`, `migration_v3_due_time.sql`, **`migration_v4_families.sql`**, **`migration_v4_families_fix.sql`**, **`migration_v5_roles.sql`**, **`migration_v6_shopping_items.sql`**
+3. Falls Tabelle schon existiert → `migration_v2.sql`, `migration_v3_due_time.sql`, **`migration_v4_families.sql`**, **`migration_v4_families_fix.sql`**, **`migration_v5_roles.sql`**, **`migration_v6_shopping_items.sql`**, **`migration_v7_group_shopping_items.sql`**
 4. **Authentication → URL Configuration**:
    - **Site URL:** `https://deine-app.vercel.app`
    - **Redirect URLs:** `https://deine-app.vercel.app/**`, `http://localhost:5173/**`
@@ -89,6 +89,7 @@ npm run build
    Erstellt: `profiles`, `groups`, `group_members`, `group_invites`, `shared_tasks`, `task_comments`, `notifications` + RLS + Realtime
 2. In der App: **Familie** → Gruppe erstellen → Mitglieder per **@benutzername** einladen
 3. Geteilte Aufgaben: Kategorien (Einkauf, Putzen, …), Zuweisung, Kommentare, Benachrichtigungen
+4. Gemeinsame Einkaufsliste: `supabase/migration_v7_group_shopping_items.sql` ausführen, dann in einer Gruppe den Tab **Einkauf** öffnen
 4. **Profil** (`/app/profile`): Benutzername & Anzeigename (Pflicht nach Google-Login)
 
 Ohne Supabase bleiben **persönliche Aufgaben** lokal nutzbar; Gruppen erfordern Cloud.
@@ -105,7 +106,7 @@ src/
   lib/          supabase, localStorage, todoUtils
   pages/        Landing, Auth, Home, Tasks, Shopping, Family, Profile, Settings
   components/groups/  Shared tasks, invites, dashboard
-supabase/       schema.sql, migration_v2–v6
+supabase/       schema.sql, migration_v2–v7
 ```
 
 ---

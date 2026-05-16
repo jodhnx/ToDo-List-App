@@ -21,6 +21,10 @@ import {
   fetchGroupActivity,
   removeGroupMember,
   setGroupMemberRole,
+  fetchGroupShoppingItems,
+  createGroupShoppingItem,
+  updateGroupShoppingItem,
+  deleteGroupShoppingItem,
 } from '../lib/groupApi'
 
 const GroupsContext = createContext(null)
@@ -115,6 +119,10 @@ export function GroupsProvider({ children }) {
     fetchActivity: fetchGroupActivity,
     removeMember: removeGroupMember,
     setMemberRole: setGroupMemberRole,
+    fetchShoppingItems: fetchGroupShoppingItems,
+    createShoppingItem: createGroupShoppingItem,
+    updateShoppingItem: updateGroupShoppingItem,
+    deleteShoppingItem: deleteGroupShoppingItem,
   }
 
   return <GroupsContext.Provider value={value}>{children}</GroupsContext.Provider>

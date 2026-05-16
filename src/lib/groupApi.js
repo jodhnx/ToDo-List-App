@@ -287,6 +287,63 @@ export async function deleteSharedTask(id) {
   if (error) throw error
 }
 
+export async function fetchGroupShoppingItems(groupId) {
+  const { data, error } = await supabase
+    .from('group_shopping_items')
+    .select('*')
+    .eq('group_id', groupId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+
+  const items = data || []
+  const ids = [...new Set(items.flatMap((item) => [item.created_by, item.checked_by].filter(Boolean)))]
+  if (!ids.length) return items
+
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, username, display_name, avatar_url')
+    .in('id', ids)
+
+  const map = Object.fromEntries((profiles || []).map((p) => [p.id, p]))
+  return items.map((item) => ({
+    ...item,
+    creator: map[item.created_by],
+    checkedBy: item.checked_by ? map[item.checked_by] : null,
+  }))
+}
+
+export async function createGroupShoppingItem(payload) {
+  const row = {
+    ...payload,
+    name: payload.name.trim(),
+    quantity: payload.quantity?.trim() || '1',
+    category: payload.category || 'Sonstiges',
+    note: payload.note?.trim() || '',
+    checked: false,
+  }
+
+  const { data, error } = await supabase.from('group_shopping_items').insert(row).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function updateGroupShoppingItem(id, updates) {
+  const { data, error } = await supabase
+    .from('group_shopping_items')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteGroupShoppingItem(id) {
+  const { error } = await supabase.from('group_shopping_items').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function fetchTaskComments(taskId) {
   const { data, error } = await supabase
     .from('task_comments')

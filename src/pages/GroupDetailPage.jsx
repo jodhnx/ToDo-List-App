@@ -13,6 +13,7 @@ import MemberList from '../components/groups/MemberList'
 import ActivityFeed from '../components/groups/ActivityFeed'
 import SharedTaskItem from '../components/groups/SharedTaskItem'
 import SharedTaskForm from '../components/groups/SharedTaskForm'
+import GroupShoppingList from '../components/groups/GroupShoppingList'
 import InviteModal from '../components/groups/InviteModal'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Button from '../components/ui/Button'
@@ -41,6 +42,10 @@ export default function GroupDetailPage() {
     removeMember,
     setMemberRole,
     fetchActivity,
+    fetchShoppingItems,
+    createShoppingItem,
+    updateShoppingItem,
+    deleteShoppingItem,
   } = useGroups()
   const { toast } = useToast()
 
@@ -49,11 +54,14 @@ export default function GroupDetailPage() {
 
   const [members, setMembers] = useState([])
   const [tasks, setTasks] = useState([])
+  const [shoppingItems, setShoppingItems] = useState([])
   const [activity, setActivity] = useState([])
   const [filter, setFilter] = useState('all')
   const [inviteOpen, setInviteOpen] = useState(false)
   const [tab, setTab] = useState('tasks')
   const [submitting, setSubmitting] = useState(false)
+  const [shoppingSubmitting, setShoppingSubmitting] = useState(false)
+  const [shoppingUnavailable, setShoppingUnavailable] = useState(false)
   const [removeTarget, setRemoveTarget] = useState(null)
 
   const myMembership = useMemo(
@@ -74,7 +82,17 @@ export default function GroupDetailPage() {
     setMembers(m)
     setTasks(t)
     setActivity(a)
-  }, [groupId, fetchMembers, fetchTasks, fetchActivity])
+
+    try {
+      const shopping = await fetchShoppingItems(groupId)
+      setShoppingItems(shopping)
+      setShoppingUnavailable(false)
+    } catch (err) {
+      console.warn('Gemeinsame Einkaufsliste nicht verfügbar:', err)
+      setShoppingItems([])
+      setShoppingUnavailable(true)
+    }
+  }, [groupId, fetchMembers, fetchTasks, fetchActivity, fetchShoppingItems])
 
   useEffect(() => {
     load()
@@ -91,6 +109,11 @@ export default function GroupDetailPage() {
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${groupId}` }, () =>
         load(),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'group_shopping_items', filter: `group_id=eq.${groupId}` },
+        () => load(),
       )
       .subscribe()
     return () => supabase.removeChannel(ch)
@@ -150,6 +173,48 @@ export default function GroupDetailPage() {
   const handleInvite = async (username) => {
     await inviteMember({ groupId, username, groupName: group.name })
     toast(`Einladung an @${username.replace(/^@/, '')} gesendet`, 'success')
+  }
+
+  const handleCreateShoppingItem = async (payload) => {
+    setShoppingSubmitting(true)
+    try {
+      await createShoppingItem({
+        ...payload,
+        group_id: groupId,
+        created_by: user.id,
+      })
+      toast('Produkt zur Familienliste hinzugefügt', 'success')
+      await load()
+      return true
+    } catch (e) {
+      toast(e.message || 'Produkt konnte nicht hinzugefügt werden', 'error')
+      return false
+    } finally {
+      setShoppingSubmitting(false)
+    }
+  }
+
+  const handleToggleShoppingItem = async (item) => {
+    const nextChecked = !item.checked
+    try {
+      await updateShoppingItem(item.id, {
+        checked: nextChecked,
+        checked_by: nextChecked ? user.id : null,
+      })
+      await load()
+    } catch (e) {
+      toast(e.message || 'Produkt konnte nicht aktualisiert werden', 'error')
+    }
+  }
+
+  const handleDeleteShoppingItem = async (item) => {
+    try {
+      await deleteShoppingItem(item.id)
+      toast('Produkt entfernt', 'info')
+      await load()
+    } catch (e) {
+      toast(e.message || 'Produkt konnte nicht gelöscht werden', 'error')
+    }
   }
 
   const handleRemove = async () => {
@@ -215,6 +280,7 @@ export default function GroupDetailPage() {
       <Tabs
         tabs={[
           { id: 'tasks', label: 'Aufgaben' },
+          { id: 'shopping', label: 'Einkauf' },
           { id: 'members', label: 'Mitglieder' },
           { id: 'activity', label: 'Aktivität' },
         ]}
@@ -272,6 +338,26 @@ export default function GroupDetailPage() {
           onRemove={(m) => setRemoveTarget(m)}
           onRoleChange={handleRoleChange}
         />
+      )}
+
+      {tab === 'shopping' && (
+        shoppingUnavailable ? (
+          <Card>
+            <p className="font-medium text-primary">Gemeinsame Einkaufsliste noch nicht aktiviert</p>
+            <p className="mt-2 text-sm text-muted">
+              Führe `supabase/migration_v7_group_shopping_items.sql` im Supabase SQL Editor aus, dann können alle
+              Gruppenmitglieder gemeinsam Produkte hinzufügen.
+            </p>
+          </Card>
+        ) : (
+          <GroupShoppingList
+            items={shoppingItems}
+            submitting={shoppingSubmitting}
+            onCreate={handleCreateShoppingItem}
+            onToggle={handleToggleShoppingItem}
+            onDelete={handleDeleteShoppingItem}
+          />
+        )
       )}
 
       {tab === 'activity' && (
