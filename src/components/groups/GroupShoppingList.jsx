@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { CheckCircle2, Plus, Search, ShoppingBasket, Trash2, X } from 'lucide-react'
 import Avatar from '../ui/Avatar'
 import Button from '../ui/Button'
-import Card from '../ui/Card'
 import Fab from '../ui/Fab'
 import Input from '../ui/Input'
 import Modal from '../ui/Modal'
@@ -130,22 +129,28 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
 
   return (
     <div className="space-y-4 pb-20 lg:pb-0">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card className="p-4">
-          <ShoppingBasket className="mb-2 h-5 w-5 text-indigo-300" />
-          <p className="text-2xl font-bold text-primary">{stats.total}</p>
-          <p className="text-xs text-muted">Produkte gesamt</p>
-        </Card>
-        <Card className="p-4">
-          <Plus className="mb-2 h-5 w-5 text-amber-300" />
-          <p className="text-2xl font-bold text-primary">{stats.open}</p>
-          <p className="text-xs text-muted">Noch einkaufen</p>
-        </Card>
-        <Card className="p-4">
-          <CheckCircle2 className="mb-2 h-5 w-5 text-emerald-300" />
-          <p className="text-2xl font-bold text-primary">{stats.checked}</p>
-          <p className="text-xs text-muted">Schon erledigt</p>
-        </Card>
+      <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
+        <div className="rounded-xl bg-white/[0.04] px-3 py-2">
+          <p className="flex items-center gap-1 text-[11px] text-muted">
+            <Plus className="h-3.5 w-3.5 text-amber-300" />
+            Noch einkaufen
+          </p>
+          <p className="mt-0.5 text-xl font-bold text-primary">{stats.open}</p>
+        </div>
+        <div className="rounded-xl bg-white/[0.04] px-3 py-2">
+          <p className="flex items-center gap-1 text-[11px] text-muted">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
+            Im Wagen
+          </p>
+          <p className="mt-0.5 text-xl font-bold text-primary">{stats.checked}</p>
+        </div>
+        <div className="rounded-xl bg-white/[0.04] px-3 py-2">
+          <p className="flex items-center gap-1 text-[11px] text-muted">
+            <ShoppingBasket className="h-3.5 w-3.5 text-indigo-300" />
+            Gesamt
+          </p>
+          <p className="mt-0.5 text-xl font-bold text-primary">{stats.total}</p>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-surface/50 p-3 sm:flex-row sm:items-center">

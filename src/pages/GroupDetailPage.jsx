@@ -254,7 +254,7 @@ export default function GroupDetailPage() {
   }
 
   return (
-    <div className="space-y-6 pb-4">
+    <div className="space-y-4 pb-4">
       <div className="flex items-start gap-3">
         <Link to="/app/family" className="rounded-lg p-2 text-muted hover:bg-white/10">
           <ArrowLeft className="h-5 w-5" />
@@ -290,7 +290,6 @@ export default function GroupDetailPage() {
 
       {tab === 'tasks' && (
         <>
-          <SharedTaskForm members={members} onSubmit={handleCreate} submitting={submitting} />
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             <Filter className="h-4 w-4 shrink-0 text-muted" />
             {filterTabs.map((f) => (
@@ -326,6 +325,14 @@ export default function GroupDetailPage() {
           {filtered.length === 0 && (
             <p className="text-center text-sm text-muted">Keine Aufgaben in diesem Filter.</p>
           )}
+          <details className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <summary className="cursor-pointer text-sm font-medium text-primary">
+              Aufgabe hinzufügen
+            </summary>
+            <div className="mt-3">
+              <SharedTaskForm members={members} onSubmit={handleCreate} submitting={submitting} />
+            </div>
+          </details>
         </>
       )}
 
