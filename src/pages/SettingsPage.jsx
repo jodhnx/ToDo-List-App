@@ -6,7 +6,7 @@ import { useTodosContext } from '../context/TodosContext'
 import { useInstallPrompt } from '../hooks/useInstallPrompt'
 import { useProfile } from '../hooks/useProfile'
 import { getSettings, saveSettings, getAiApiKey, setAiApiKey } from '../lib/settings'
-import { APP_BASE_VERSION, APP_VERSION, APP_VERSION_RULES } from '../lib/appVersion'
+import { APP_BASE_VERSION, APP_CHANGELOG, APP_VERSION } from '../lib/appVersion'
 import {
   requestNotificationPermission,
   getNotificationPermission,
@@ -297,9 +297,10 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium text-primary">App-Version</p>
                 <p className="mt-1 text-2xl font-bold text-indigo-300">v{APP_VERSION}</p>
                 <p className="mt-1 text-xs text-muted">Startwert: v{APP_BASE_VERSION}</p>
-                <ul className="mt-3 space-y-1 text-xs text-muted">
-                  {APP_VERSION_RULES.map((rule) => (
-                    <li key={rule}>{rule}</li>
+                <p className="mt-4 text-sm font-medium text-primary">Zuletzt geändert</p>
+                <ul className="mt-2 space-y-1.5 text-sm text-muted">
+                  {APP_CHANGELOG.map((entry) => (
+                    <li key={entry}>- {entry}</li>
                   ))}
                 </ul>
               </div>
