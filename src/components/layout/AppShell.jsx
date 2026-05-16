@@ -12,7 +12,7 @@ const navItems = [
   { to: '/app/tasks', icon: ListTodo, label: 'Aufgaben' },
   { to: '/app/shopping', icon: ShoppingBasket, label: 'Einkauf' },
   { to: '/app/family', icon: Users, label: 'Familie' },
-  { to: '/app/settings', icon: Settings, label: 'Einstellungen' },
+  { to: '/app/settings', icon: Settings, label: 'Einstellungen', mobileLabel: 'Einst.' },
 ]
 
 function FamilyNavBadge() {
@@ -81,7 +81,7 @@ function AppShellInner() {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 pb-20 lg:pb-0">
+        <main className="min-w-0 flex-1 pb-28 lg:pb-0">
           <UsernameGate>
             <Outlet />
           </UsernameGate>
@@ -90,23 +90,23 @@ function AppShellInner() {
 
       {/* Bottom Navigation Mobile */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
-        <div className="mx-auto flex max-w-lg justify-around px-2 py-2">
-          {navItems.map(({ to, end, icon: Icon, label }) => (
+        <div className="mx-auto grid max-w-lg grid-cols-5 gap-1 px-2 py-2">
+          {navItems.map(({ to, end, icon: Icon, label, mobileLabel }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 rounded-xl px-4 py-2 text-xs transition ${
+                `min-w-0 rounded-xl px-1.5 py-2 text-[10px] font-medium transition ${
                   isActive ? 'text-indigo-400' : 'text-muted'
                 }`
               }
             >
-              <span className="relative">
-                <Icon className="h-5 w-5" />
+              <span className="relative mx-auto flex w-fit justify-center">
+                <Icon className="h-5 w-5 shrink-0" />
                 {to === '/app/family' && <FamilyNavBadge />}
               </span>
-              {label}
+              <span className="mt-0.5 block truncate text-center leading-tight">{mobileLabel || label}</span>
             </NavLink>
           ))}
         </div>
