@@ -5,6 +5,8 @@ import Button from '../ui/Button'
 import { GROUP_CATEGORIES, GROUP_PRIORITIES } from '../../lib/groupConstants'
 import { resolveMemberByUsername } from '../../lib/groupApi'
 import SpeechInputButton from '../ui/SpeechInputButton'
+import { requestNotificationPermission } from '../../lib/notifications'
+import { saveSettings } from '../../lib/settings'
 
 const empty = {
   title: '',
@@ -15,6 +17,33 @@ const empty = {
   due_time: '',
   useTime: false,
   assignee_username: '',
+  notify_enabled: false,
+  reminder_date: '',
+  reminder_time: '',
+  reminder_repeat: false,
+  reminder_early: true,
+  reminder_sound: 'standard',
+}
+
+const soundOptions = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'soft', label: 'Sanft' },
+  { value: 'clear', label: 'Deutlich' },
+]
+
+function toDateInput(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function toTimeInput(date) {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+function buildReminderAt(form) {
+  if (!form.notify_enabled || !form.reminder_date || !form.reminder_time) return null
+  const date = new Date(`${form.reminder_date}T${form.reminder_time}`)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toISOString()
 }
 
 export default function SharedTaskForm({ members, onSubmit, submitting }) {
@@ -23,8 +52,30 @@ export default function SharedTaskForm({ members, onSubmit, submitting }) {
 
   const change = (field) => (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked : e.target.value
-    setForm((f) => ({ ...f, [field]: v }))
+    setForm((f) => {
+      const next = { ...f, [field]: v }
+      if (field === 'notify_enabled' && v) {
+        const fallback = new Date(Date.now() + 60 * 60 * 1000)
+        next.reminder_date = next.reminder_date || next.due_date || toDateInput(fallback)
+        next.reminder_time = next.reminder_time || next.due_time || toTimeInput(fallback)
+      }
+      if (field === 'notify_enabled' && !v) {
+        next.reminder_date = ''
+        next.reminder_time = ''
+        next.reminder_repeat = false
+        next.reminder_early = true
+      }
+      return next
+    })
     if (field === 'assignee_username') setAssignError('')
+  }
+
+  const enableNotification = async (checked) => {
+    change('notify_enabled')({ target: { type: 'checkbox', checked } })
+    if (checked) {
+      const permission = await requestNotificationPermission()
+      if (permission === 'granted') saveSettings({ notifications: true })
+    }
   }
 
   const appendField = (field, text) => {
@@ -55,6 +106,11 @@ export default function SharedTaskForm({ members, onSubmit, submitting }) {
       priority: form.priority,
       due_date: form.due_date || null,
       due_time: form.due_date && form.useTime && form.due_time ? form.due_time : null,
+      notify_enabled: !!assignee_id && !!form.notify_enabled,
+      reminder_at: assignee_id ? buildReminderAt(form) : null,
+      reminder_repeat: !!assignee_id && !!form.reminder_repeat,
+      reminder_early: !!assignee_id && !!form.reminder_early,
+      reminder_sound: form.reminder_sound,
       assignee_id,
       status: 'open',
     })
@@ -135,6 +191,69 @@ export default function SharedTaskForm({ members, onSubmit, submitting }) {
           </div>
         )}
       </div>
+
+      {form.assignee_username.trim() && (
+        <div className="space-y-3 rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-3">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-primary">
+            <input
+              type="checkbox"
+              checked={form.notify_enabled}
+              onChange={(e) => enableNotification(e.target.checked)}
+              className="rounded text-indigo-500"
+            />
+            Benachrichtigung an diese Person senden
+          </label>
+          {form.notify_enabled && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  label="Datum"
+                  type="date"
+                  value={form.reminder_date}
+                  onChange={change('reminder_date')}
+                  required
+                />
+                <Input
+                  label="Uhrzeit"
+                  type="time"
+                  value={form.reminder_time}
+                  onChange={change('reminder_time')}
+                  required
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+                  <input
+                    type="checkbox"
+                    checked={form.reminder_repeat}
+                    onChange={change('reminder_repeat')}
+                    className="rounded text-indigo-500"
+                  />
+                  Erinnerung wiederholen
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+                  <input
+                    type="checkbox"
+                    checked={form.reminder_early}
+                    onChange={change('reminder_early')}
+                    className="rounded text-indigo-500"
+                  />
+                  10 Minuten vorher erinnern
+                </label>
+              </div>
+              <Select
+                label="Erinnerungston"
+                value={form.reminder_sound}
+                onChange={change('reminder_sound')}
+                options={soundOptions}
+              />
+              <p className="text-xs text-muted">
+                Beispiel: „Mama erinnert dich an: Müll rausbringen um 18:00“.
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       <Button type="submit" disabled={submitting} className="w-full">
         {submitting ? 'Speichern…' : 'Aufgabe hinzufügen'}

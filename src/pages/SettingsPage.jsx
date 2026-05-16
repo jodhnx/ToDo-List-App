@@ -84,7 +84,7 @@ export default function SettingsPage() {
       <Tabs tabs={settingTabs} active={tab} onChange={setTab} />
 
       {tab === 'profile' && (
-        <Card>
+        <Card className="space-y-6">
           <Section icon={User} title="Profil" description="Dein Anzeigename und Benutzername">
             <form
               onSubmit={async (e) => {
@@ -105,6 +105,18 @@ export default function SettingsPage() {
               <Input label="E-Mail" value={user?.email || ''} disabled className="opacity-50" />
               <Button type="submit">Speichern</Button>
             </form>
+          </Section>
+          <Section icon={User} title="Einfacher Modus" description="Größere Schriften, größere Buttons und klarere Abstände">
+            <div className="space-y-3">
+              <Toggle
+                label="Einfachen Modus verwenden"
+                checked={!!prefs.simpleMode}
+                onChange={(v) => updatePrefs({ simpleMode: v })}
+              />
+              <p className="text-sm text-muted">
+                Ideal für Familienmitglieder, die eine ruhigere Ansicht mit großen Bedienflächen möchten.
+              </p>
+            </div>
           </Section>
         </Card>
       )}

@@ -117,6 +117,23 @@
   html.light .input-field {
     @apply border-black/10 bg-black/5 text-zinc-900;
   }
+
+  .simple-mode {
+    font-size: 17px;
+  }
+
+  .simple-mode button,
+  .simple-mode a,
+  .simple-mode input,
+  .simple-mode select,
+  .simple-mode textarea {
+    min-height: 44px;
+  }
+
+  .simple-mode .glass-card,
+  .simple-mode .rounded-2xl {
+    border-width: 1px;
+  }
 }
 
 ::-webkit-scrollbar {

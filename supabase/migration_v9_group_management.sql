@@ -193,3 +193,47 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.remove_group_member(UUID, UUID) TO authenticated;
+
+-- Rollenänderungen ebenfalls strikt an owner_id koppeln.
+CREATE OR REPLACE FUNCTION public.set_group_member_role(
+  p_group_id UUID,
+  p_target_user_id UUID,
+  p_new_role TEXT
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  target_role TEXT;
+  actor UUID := auth.uid();
+  group_owner UUID;
+BEGIN
+  IF actor IS NULL THEN RAISE EXCEPTION 'Nicht angemeldet'; END IF;
+  IF p_new_role NOT IN ('admin', 'member') THEN
+    RAISE EXCEPTION 'Ungültiger Rang';
+  END IF;
+
+  SELECT owner_id INTO group_owner FROM public.groups WHERE id = p_group_id;
+
+  IF actor <> group_owner THEN
+    RAISE EXCEPTION 'Nur der Oberadmin kann Adminrechte ändern';
+  END IF;
+
+  SELECT role INTO target_role FROM public.group_members
+  WHERE group_id = p_group_id AND user_id = p_target_user_id;
+
+  IF target_role IS NULL THEN RAISE EXCEPTION 'Benutzer ist nicht in der Gruppe'; END IF;
+  IF p_target_user_id = actor THEN RAISE EXCEPTION 'Eigenen Rang kannst du nicht ändern'; END IF;
+  IF p_target_user_id = group_owner OR target_role = 'owner' THEN
+    RAISE EXCEPTION 'Rang des Oberadmins kann nicht geändert werden';
+  END IF;
+
+  UPDATE public.group_members
+  SET role = p_new_role
+  WHERE group_id = p_group_id AND user_id = p_target_user_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.set_group_member_role(UUID, UUID, TEXT) TO authenticated;

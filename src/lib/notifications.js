@@ -3,6 +3,7 @@ import { isDueToday, isOverdue } from './todoUtils'
 
 const SHOWN_KEY = 'focus_notif_shown'
 const REMINDER_SHOWN_KEY = 'focus_reminders_shown'
+const GROUP_REMINDER_SHOWN_KEY = 'focus_group_reminders_shown'
 
 /** Sichere Referenz — auf iOS/Safari oft nicht verfügbar (sonst ReferenceError) */
 function getNotificationAPI() {
@@ -62,6 +63,24 @@ function markReminderShown(id) {
     const shown = new Set(getShownReminders())
     shown.add(id)
     localStorage.setItem(REMINDER_SHOWN_KEY, JSON.stringify([...shown]))
+  } catch {
+    /* ignore */
+  }
+}
+
+function getShownGroupReminders() {
+  try {
+    return JSON.parse(localStorage.getItem(GROUP_REMINDER_SHOWN_KEY) || '[]')
+  } catch {
+    return []
+  }
+}
+
+function markGroupReminderShown(id) {
+  try {
+    const shown = new Set(getShownGroupReminders())
+    shown.add(id)
+    localStorage.setItem(GROUP_REMINDER_SHOWN_KEY, JSON.stringify([...shown]))
   } catch {
     /* ignore */
   }
@@ -131,6 +150,12 @@ function showNotification(title, body, tag) {
   }
 }
 
+function formatTime(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+}
+
 /** Offene Todos prüfen und Push senden */
 export function checkAndNotifyTodos(todos) {
   if (!isNotificationSupported() || getPermission() !== 'granted') return
@@ -184,6 +209,43 @@ export function checkReminderTodos(todos) {
 
       showNotification('Aufgaben-Erinnerung', t.title, `reminder-${t.id}`)
       markReminderShown(String(t.id))
+    })
+}
+
+export function checkSharedTaskReminders(tasks, currentUserId) {
+  if (!currentUserId || !isNotificationSupported() || getPermission() !== 'granted') return
+
+  const settings = getSettings()
+  if (!settings.notifications) return
+
+  const shown = getShownGroupReminders()
+  const now = Date.now()
+  const day = todayKey()
+
+  ;(tasks || [])
+    .filter((t) => {
+      if (t.status === 'completed') return false
+      if (!t.notify_enabled || !t.reminder_at) return false
+      return t.assignee_id === currentUserId
+    })
+    .forEach((task) => {
+      const reminderAt = new Date(task.reminder_at).getTime()
+      if (Number.isNaN(reminderAt)) return
+
+      const notifyAt = task.reminder_early ? reminderAt - 10 * 60 * 1000 : reminderAt
+      if (notifyAt > now) return
+
+      const key = task.reminder_repeat ? `group-${task.id}-${day}` : `group-${task.id}`
+      if (shown.includes(key)) return
+
+      const from = task.creator?.display_name || task.creator?.username || 'Deine Familie'
+      const time = formatTime(task.reminder_at)
+      showNotification(
+        'Familien-Erinnerung',
+        `${from} erinnert dich an: ${task.title}${time ? ` um ${time}` : ''}`,
+        key,
+      )
+      markGroupReminderShown(key)
     })
 }
 

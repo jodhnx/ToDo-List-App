@@ -45,6 +45,7 @@ export default function HomePage() {
 
   const [search, setSearch] = useState('')
   const [quickFilter, setQuickFilter] = useState(searchParams.get('quick') || 'all')
+  const [statFilter, setStatFilter] = useState(searchParams.get('view') || 'open')
   const [showDone, setShowDone] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
@@ -60,6 +61,8 @@ export default function HomePage() {
     }
     const q = searchParams.get('quick')
     if (q) setQuickFilter(q)
+    const view = searchParams.get('view')
+    if (view) setStatFilter(view)
   }, [searchParams, setSearchParams])
 
   const stats = useMemo(
@@ -81,10 +84,14 @@ export default function HomePage() {
         (t.description || '').toLowerCase().includes(q)
       )
     })
-    if (!showDone) list = list.filter((t) => !t.completed)
+    if (statFilter === 'open') list = list.filter((t) => !t.completed)
+    if (statFilter === 'done') list = list.filter((t) => t.completed)
+    if (statFilter === 'today') list = list.filter(isDueToday)
+    if (statFilter === 'overdue') list = list.filter(isOverdue)
+    if (statFilter === 'all' && !showDone) list = list.filter((t) => !t.completed)
     list = applyQuickFilter(list, quickFilter)
     return sortTodos(list, 'due_date')
-  }, [todos, search, quickFilter, showDone])
+  }, [todos, search, quickFilter, showDone, statFilter])
 
   const groups = useMemo(() => groupTodosForOverview(filtered), [filtered])
 
@@ -150,10 +157,18 @@ export default function HomePage() {
       <header>
         <p className="text-sm text-muted">{greeting()},</p>
         <h1 className="text-2xl font-bold text-primary sm:text-3xl">{displayName}</h1>
-        <p className="mt-1 text-sm text-muted">Deine Aufgaben im Überblick</p>
+        <p className="mt-1 text-base text-muted">Tippe auf eine Karte, um die passende Aufgabenliste zu sehen.</p>
       </header>
 
-      <StatsBar stats={stats} />
+      <StatsBar
+        stats={stats}
+        active={statFilter}
+        onSelect={(key) => {
+          setStatFilter(key)
+          if (key === 'done') setShowDone(true)
+          setSearchParams(key === 'open' ? {} : { view: key }, { replace: true })
+        }}
+      />
 
       <AIAssistant todos={todos} />
 
@@ -167,7 +182,7 @@ export default function HomePage() {
         >
           <span className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4" />
-            Suche & Filter
+            Suche, Filter und erledigte Aufgaben
           </span>
           <ChevronDown className={`h-4 w-4 transition ${filtersOpen ? 'rotate-180' : ''}`} />
         </button>
@@ -189,6 +204,16 @@ export default function HomePage() {
               />
               Erledigte anzeigen
             </label>
+            <button
+              type="button"
+              onClick={() => {
+                setStatFilter('all')
+                setSearchParams({}, { replace: true })
+              }}
+              className="rounded-xl border border-white/10 px-3 py-2 text-left text-sm text-muted hover:bg-white/5 hover:text-primary"
+            >
+              Alle offenen Aufgaben anzeigen
+            </button>
           </div>
         )}
       </div>

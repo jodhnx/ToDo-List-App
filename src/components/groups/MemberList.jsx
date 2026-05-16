@@ -36,6 +36,7 @@ export default function MemberList({
   myRole,
   onRemove,
   onRoleChange,
+  actionDisabled = false,
 }) {
   const sorted = [...members].sort((a, b) => {
     const order = { owner: 0, admin: 1, member: 2 }
@@ -50,8 +51,9 @@ export default function MemberList({
       {sorted.map((m) => {
         const role = resolveDisplayRole(m, groupOwnerId || groupCreatedBy)
         const isSelf = m.user_id === currentUserId
-        const showRemove = !isSelf && onRemove && canRemoveMember(myRole, role)
-        const showRoleSelect = !isSelf && role !== 'owner' && onRoleChange && canSetRoles(myRole)
+        const isGroupOwner = currentUserId === (groupOwnerId || groupCreatedBy)
+        const showRemove = !isSelf && onRemove && canRemoveMember(isGroupOwner ? 'owner' : myRole, role)
+        const showRoleSelect = !isSelf && role !== 'owner' && onRoleChange && canSetRoles(isGroupOwner ? 'owner' : myRole)
 
         return (
           <li
@@ -70,12 +72,17 @@ export default function MemberList({
               <RoleBadge role={role} />
             </div>
 
+            {!showRoleSelect && role !== 'owner' && myRole === 'admin' && (
+              <p className="text-xs text-muted">Nur der Oberadmin kann Rollen ändern.</p>
+            )}
+
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               {showRoleSelect && (
                 <div className="relative">
                   <select
                     value={role === 'admin' ? 'admin' : 'member'}
                     onChange={(e) => onRoleChange(m, e.target.value)}
+                    disabled={actionDisabled}
                     className="appearance-none rounded-lg border border-white/10 bg-white/5 py-1.5 pl-2 pr-7 text-xs text-primary"
                   >
                     <option value="member">Mitglied</option>
@@ -90,6 +97,7 @@ export default function MemberList({
                   variant="ghost"
                   size="sm"
                   onClick={() => onRemove(m)}
+                  disabled={actionDisabled}
                   className="gap-1 text-rose-400 hover:bg-rose-500/10"
                 >
                   <UserMinus className="h-3.5 w-3.5" />

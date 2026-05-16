@@ -22,12 +22,14 @@ export function getSettings() {
     morningHour: 8,
     rememberEmail: '',
     offlineCache: true,
+    simpleMode: false,
   })
 }
 
 export function saveSettings(partial) {
   const next = { ...getSettings(), ...partial }
   write('prefs', next)
+  window.dispatchEvent?.(new CustomEvent('focus-settings-change', { detail: next }))
   return next
 }
 

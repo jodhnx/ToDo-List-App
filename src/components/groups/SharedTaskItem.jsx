@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Calendar, MessageCircle, Trash2, User } from 'lucide-react'
+import { Bell, Calendar, MessageCircle, Trash2, User } from 'lucide-react'
 import { getGroupCategory } from '../../lib/groupConstants'
 import { formatDueLabel } from '../../lib/dateTime'
 import Avatar from '../ui/Avatar'
@@ -22,6 +22,14 @@ export default function SharedTaskItem({
   const CatIcon = cat.icon
   const isMine = task.assignee_id === currentUserId
   const due = formatDueLabel(task)
+  const reminderLabel = task.notify_enabled && task.reminder_at
+    ? new Date(task.reminder_at).toLocaleString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : ''
 
   return (
     <motion.li
@@ -54,6 +62,13 @@ export default function SharedTaskItem({
               <span className="flex items-center gap-1 text-muted">
                 <Calendar className="h-3 w-3" />
                 {due}
+              </span>
+            )}
+            {reminderLabel && (
+              <span className="flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-indigo-300">
+                <Bell className="h-3 w-3" />
+                {reminderLabel}
+                {task.reminder_early ? ' · 10 Min vorher' : ''}
               </span>
             )}
           </div>

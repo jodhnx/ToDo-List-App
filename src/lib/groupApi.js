@@ -252,7 +252,20 @@ export async function fetchSharedTasks(groupId) {
 }
 
 export async function createSharedTask(payload) {
-  const { data, error } = await supabase.from('shared_tasks').insert(payload).select().single()
+  let { data, error } = await supabase.from('shared_tasks').insert(payload).select().single()
+  if (error && /notify_enabled|reminder_at|reminder_repeat|reminder_early|reminder_sound|column/i.test(error.message || '')) {
+    const {
+      notify_enabled,
+      reminder_at,
+      reminder_repeat,
+      reminder_early,
+      reminder_sound,
+      ...fallbackPayload
+    } = payload
+    const retry = await supabase.from('shared_tasks').insert(fallbackPayload).select().single()
+    data = retry.data
+    error = retry.error
+  }
   if (error) throw error
 
   if (payload.assignee_id && payload.assignee_id !== payload.creator_id) {
@@ -268,7 +281,13 @@ export async function createSharedTask(payload) {
 }
 
 export async function updateSharedTask(id, updates, meta = {}) {
-  const { data, error } = await supabase.from('shared_tasks').update(updates).eq('id', id).select().single()
+  let { data, error } = await supabase.from('shared_tasks').update(updates).eq('id', id).select().single()
+  if (error && /completed_by|completed_at|column/i.test(error.message || '')) {
+    const { completed_by, completed_at, ...fallbackUpdates } = updates
+    const retry = await supabase.from('shared_tasks').update(fallbackUpdates).eq('id', id).select().single()
+    data = retry.data
+    error = retry.error
+  }
   if (error) throw error
 
   if (updates.status === 'completed' && meta.notifyUserId) {
@@ -425,15 +444,26 @@ export async function setGroupMemberRole(groupId, targetUserId, newRole) {
 }
 
 /** Gruppe verwalten (nur Owner/Oberadmin via RPC) */
-export async function updateGroup(groupId, { name, icon }) {
+export async function updateGroup(groupId, { name, icon, description, avatar_url }) {
   const trimmed = String(name || '').trim()
   if (!trimmed) throw new Error('Gruppenname erforderlich')
 
-  const { data, error } = await supabase.rpc('update_family_group', {
+  let { data, error } = await supabase.rpc('update_family_group', {
     p_group_id: groupId,
     p_name: trimmed,
     p_icon: icon || null,
+    p_description: description ?? null,
+    p_avatar_url: avatar_url ?? null,
   })
+  if (error && /function|p_description|p_avatar_url/i.test(error.message || '')) {
+    const retry = await supabase.rpc('update_family_group', {
+      p_group_id: groupId,
+      p_name: trimmed,
+      p_icon: icon || null,
+    })
+    data = retry.data
+    error = retry.error
+  }
   if (error) throw new Error(formatGroupError(error))
   return data
 }
@@ -456,16 +486,27 @@ export function resolveMemberByUsername(members, username) {
 }
 
 export async function fetchGroupActivity(groupId, limit = 20) {
-  const { data: tasks, error } = await supabase
+  let { data: tasks, error } = await supabase
     .from('shared_tasks')
-    .select('id, title, status, created_at, updated_at, creator_id')
+    .select('id, title, status, created_at, updated_at, creator_id, completed_by, completed_at')
     .eq('group_id', groupId)
     .order('updated_at', { ascending: false })
     .limit(limit)
 
+  if (error && /completed_by|completed_at|column/i.test(error.message || '')) {
+    const retry = await supabase
+      .from('shared_tasks')
+      .select('id, title, status, created_at, updated_at, creator_id')
+      .eq('group_id', groupId)
+      .order('updated_at', { ascending: false })
+      .limit(limit)
+    tasks = retry.data
+    error = retry.error
+  }
+
   if (error) throw error
 
-  const creatorIds = [...new Set((tasks || []).map((t) => t.creator_id))]
+  const creatorIds = [...new Set((tasks || []).flatMap((t) => [t.creator_id, t.completed_by].filter(Boolean)))]
   let profileMap = {}
   if (creatorIds.length) {
     const { data: profiles } = await supabase.from('profiles').select('id, username, display_name').in('id', creatorIds)
@@ -473,11 +514,12 @@ export async function fetchGroupActivity(groupId, limit = 20) {
   }
 
   return (tasks || []).map((t) => {
-    const p = profileMap[t.creator_id]
+    const actorId = t.status === 'completed' && t.completed_by ? t.completed_by : t.creator_id
+    const p = profileMap[actorId]
     return {
       id: `task-${t.id}`,
       type: t.status === 'completed' ? 'task_completed' : 'task_created',
-      at: t.updated_at || t.created_at,
+      at: (t.status === 'completed' && t.completed_at) || t.updated_at || t.created_at,
       text: t.title,
       user: p?.display_name || p?.username || 'Mitglied',
     }

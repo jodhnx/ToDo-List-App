@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
-import { ArrowLeft, UserPlus, Filter, Settings, Trash2, Crown } from 'lucide-react'
+import { ArrowLeft, UserPlus, Filter, Settings, Trash2, Crown, Copy, CheckCircle2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useGroups } from '../context/GroupsContext'
@@ -22,6 +22,7 @@ import Tabs from '../components/ui/Tabs'
 import Modal from '../components/ui/Modal'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
+import { checkSharedTaskReminders } from '../lib/notifications'
 
 const filterTabs = [
   { id: 'all', label: 'Alle' },
@@ -75,8 +76,11 @@ export default function GroupDetailPage() {
   const [manageOpen, setManageOpen] = useState(false)
   const [groupName, setGroupName] = useState('')
   const [groupIcon, setGroupIcon] = useState('home')
+  const [groupDescription, setGroupDescription] = useState('')
+  const [groupAvatarUrl, setGroupAvatarUrl] = useState('')
   const [deleteGroupOpen, setDeleteGroupOpen] = useState(false)
   const [savingGroup, setSavingGroup] = useState(false)
+  const [busyAction, setBusyAction] = useState('')
 
   const myMembership = useMemo(
     () => members.find((m) => m.user_id === user?.id),
@@ -88,11 +92,14 @@ export default function GroupDetailPage() {
   const canManageGroup = myRole === 'owner'
   const ownerMember = members.find((m) => m.user_id === (group?.owner_id || group?.created_by))
   const ownerUsername = ownerMember?.profile?.username || group?.owner?.username
+  const lastCompleted = activity.find((item) => item.type === 'task_completed')
 
   useEffect(() => {
     setGroupName(group?.name || '')
     setGroupIcon(group?.icon || 'home')
-  }, [group?.name, group?.icon])
+    setGroupDescription(group?.description || '')
+    setGroupAvatarUrl(group?.avatar_url || '')
+  }, [group?.name, group?.icon, group?.description, group?.avatar_url])
 
   const load = useCallback(async () => {
     if (!groupId) return
@@ -119,6 +126,13 @@ export default function GroupDetailPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    const run = () => checkSharedTaskReminders(tasks, user?.id)
+    run()
+    const id = window.setInterval(run, 60_000)
+    return () => window.clearInterval(id)
+  }, [tasks, user?.id])
 
   useEffect(() => {
     if (!groupId || !supabase) return
@@ -176,7 +190,11 @@ export default function GroupDetailPage() {
     const next = task.status === 'completed' ? 'open' : 'completed'
     await updateTask(
       task.id,
-      { status: next },
+      {
+        status: next,
+        completed_by: next === 'completed' ? user.id : null,
+        completed_at: next === 'completed' ? new Date().toISOString() : null,
+      },
       {
         notifyUserId: next === 'completed' && task.creator_id !== user.id ? task.creator_id : null,
         actorId: user.id,
@@ -193,7 +211,8 @@ export default function GroupDetailPage() {
   }
 
   const handleDeleteTask = async () => {
-    if (!deleteTaskTarget) return
+    if (!deleteTaskTarget || busyAction) return
+    setBusyAction('delete-task')
     try {
       await deleteTask(deleteTaskTarget.id)
       toast('Aufgabe gelöscht', 'info')
@@ -201,6 +220,8 @@ export default function GroupDetailPage() {
       await load()
     } catch (e) {
       toast(e.message || 'Aufgabe konnte nicht gelöscht werden', 'error')
+    } finally {
+      setBusyAction('')
     }
   }
 
@@ -252,7 +273,8 @@ export default function GroupDetailPage() {
   }
 
   const handleRemove = async () => {
-    if (!removeTarget) return
+    if (!removeTarget || busyAction) return
+    setBusyAction('remove-member')
     try {
       await removeMember(groupId, removeTarget.user_id)
       toast(`@${removeTarget.profile?.username} entfernt`, 'info')
@@ -260,10 +282,14 @@ export default function GroupDetailPage() {
       await load()
     } catch (e) {
       toast(e.message, 'error')
+    } finally {
+      setBusyAction('')
     }
   }
 
   const handleRoleChange = async (member, newRole) => {
+    if (busyAction) return
+    setBusyAction(`role-${member.user_id}`)
     try {
       await setMemberRole(groupId, member.user_id, newRole)
       toast(
@@ -273,6 +299,8 @@ export default function GroupDetailPage() {
       await load()
     } catch (e) {
       toast(e.message, 'error')
+    } finally {
+      setBusyAction('')
     }
   }
 
@@ -281,7 +309,12 @@ export default function GroupDetailPage() {
     if (!canManageGroup || savingGroup) return
     setSavingGroup(true)
     try {
-      await updateGroup(groupId, { name: groupName, icon: groupIcon })
+      await updateGroup(groupId, {
+        name: groupName,
+        icon: groupIcon,
+        description: groupDescription,
+        avatar_url: groupAvatarUrl,
+      })
       await refreshGroups()
       toast('Gruppe gespeichert', 'success')
       setManageOpen(false)
@@ -293,7 +326,8 @@ export default function GroupDetailPage() {
   }
 
   const handleDeleteGroup = async () => {
-    if (!canManageGroup) return
+    if (!canManageGroup || busyAction) return
+    setBusyAction('delete-group')
     try {
       await deleteGroup(groupId)
       await refreshGroups()
@@ -301,6 +335,8 @@ export default function GroupDetailPage() {
       navigate('/app/family', { replace: true })
     } catch (e) {
       toast(e.message || 'Gruppe konnte nicht gelöscht werden', 'error')
+    } finally {
+      setBusyAction('')
     }
   }
 
@@ -321,9 +357,13 @@ export default function GroupDetailPage() {
         <Link to="/app/family" className="rounded-lg p-2 text-muted hover:bg-white/10">
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-300">
-          <Icon className="h-6 w-6" />
-        </div>
+        {group.avatar_url ? (
+          <img src={group.avatar_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-300">
+            <Icon className="h-6 w-6" />
+          </div>
+        )}
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-primary">{group.name}</h1>
           <p className="text-sm text-muted">
@@ -339,6 +379,28 @@ export default function GroupDetailPage() {
               </span>
             </p>
           )}
+          {group.description && <p className="mt-2 max-w-2xl text-sm text-muted">{group.description}</p>}
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            {lastCompleted && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-emerald-300">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Zuletzt erledigt: {lastCompleted.user} · {lastCompleted.text}
+              </span>
+            )}
+            {group.invite_code && (
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(group.invite_code)
+                  toast('Familiencode kopiert', 'success')
+                }}
+                className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-1 text-muted hover:text-primary"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                Familiencode: {group.invite_code}
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex shrink-0 gap-2">
           {canManageGroup && (
@@ -403,7 +465,12 @@ export default function GroupDetailPage() {
             </AnimatePresence>
           </ul>
           {filtered.length === 0 && (
-            <p className="text-center text-sm text-muted">Keine Aufgaben in diesem Filter.</p>
+            <Card className="text-center">
+              <p className="font-medium text-primary">Hier ist gerade nichts zu tun.</p>
+              <p className="mt-1 text-sm text-muted">
+                Wähle einen anderen Filter oder füge unten eine neue Aufgabe für die Familie hinzu.
+              </p>
+            </Card>
           )}
           <details className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
             <summary className="cursor-pointer text-sm font-medium text-primary">
@@ -425,6 +492,7 @@ export default function GroupDetailPage() {
           myRole={myRole}
           onRemove={(m) => setRemoveTarget(m)}
           onRoleChange={handleRoleChange}
+          actionDisabled={!!busyAction}
         />
       )}
 
@@ -471,6 +539,18 @@ export default function GroupDetailPage() {
             onChange={(e) => setGroupIcon(e.target.value)}
             options={GROUP_ICONS.map((icon) => ({ value: icon.value, label: icon.label }))}
           />
+          <Input
+            label="Familienbeschreibung"
+            value={groupDescription}
+            onChange={(e) => setGroupDescription(e.target.value)}
+            placeholder="z. B. Aufgaben und Einkauf für Zuhause"
+          />
+          <Input
+            label="Profilbild-URL"
+            value={groupAvatarUrl}
+            onChange={(e) => setGroupAvatarUrl(e.target.value)}
+            placeholder="https://..."
+          />
           <Button type="submit" disabled={savingGroup || !groupName.trim()} className="w-full">
             {savingGroup ? 'Speichern…' : 'Gruppe speichern'}
           </Button>
@@ -505,6 +585,7 @@ export default function GroupDetailPage() {
         }
         onConfirm={handleRemove}
         onCancel={() => setRemoveTarget(null)}
+        loading={busyAction === 'remove-member'}
       />
 
       <ConfirmDialog
@@ -518,6 +599,7 @@ export default function GroupDetailPage() {
         confirmLabel="Löschen"
         onConfirm={handleDeleteTask}
         onCancel={() => setDeleteTaskTarget(null)}
+        loading={busyAction === 'delete-task'}
       />
 
       <ConfirmDialog
@@ -527,6 +609,7 @@ export default function GroupDetailPage() {
         confirmLabel="Gruppe löschen"
         onConfirm={handleDeleteGroup}
         onCancel={() => setDeleteGroupOpen(false)}
+        loading={busyAction === 'delete-group'}
       />
     </div>
   )

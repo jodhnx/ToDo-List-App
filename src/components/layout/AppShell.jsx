@@ -6,6 +6,8 @@ import { TodosProvider, useTodosContext } from '../../context/TodosContext'
 import { GroupsProvider, useGroups } from '../../context/GroupsContext'
 import { useNotifications } from '../../hooks/useNotifications'
 import UsernameGate from './UsernameGate'
+import { getSettings } from '../../lib/settings'
+import { useEffect, useState } from 'react'
 
 const navItems = [
   { to: '/app', end: true, icon: LayoutDashboard, label: 'Übersicht' },
@@ -29,10 +31,17 @@ function FamilyNavBadge() {
 function AppShellInner() {
   const { displayName, isOnline } = useAuth()
   const { todos, syncing } = useTodosContext()
+  const [simpleMode, setSimpleMode] = useState(() => getSettings().simpleMode)
   useNotifications(todos)
 
+  useEffect(() => {
+    const onSettings = (event) => setSimpleMode(Boolean(event.detail?.simpleMode))
+    window.addEventListener('focus-settings-change', onSettings)
+    return () => window.removeEventListener('focus-settings-change', onSettings)
+  }, [])
+
   return (
-    <div className="min-h-screen gradient-mesh">
+    <div className={`min-h-screen gradient-mesh ${simpleMode ? 'simple-mode' : ''}`}>
       <Navbar />
 
       <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6">
@@ -81,7 +90,7 @@ function AppShellInner() {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 pb-28 lg:pb-0">
+        <main className={`min-w-0 flex-1 pb-28 lg:pb-0 ${simpleMode ? 'space-y-6' : ''}`}>
           <UsernameGate>
             <Outlet />
           </UsernameGate>
