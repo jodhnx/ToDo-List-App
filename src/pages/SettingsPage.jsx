@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { User, Bell, Sparkles, KeyRound, Shield, Wifi, WifiOff } from 'lucide-react'
+import { User, Bell, Sparkles, KeyRound, Shield, Wifi, WifiOff, Code2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useTodosContext } from '../context/TodosContext'
@@ -21,6 +21,7 @@ const settingTabs = [
   { id: 'notifications', label: 'Benachrichtigungen' },
   { id: 'ai', label: 'KI' },
   { id: 'security', label: 'Sicherheit' },
+  { id: 'creator', label: 'Creator' },
 ]
 
 export default function SettingsPage() {
@@ -230,6 +231,21 @@ export default function SettingsPage() {
               </form>
             </Section>
           )}
+        </Card>
+      )}
+
+      {tab === 'creator' && (
+        <Card>
+          <Section icon={Code2} title="Creator" description="Über diese App">
+            <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-5">
+              <p className="text-sm text-muted">Diese App wurde erstellt von</p>
+              <h2 className="mt-1 text-2xl font-bold text-primary">Benjamin Streitriegl</h2>
+              <p className="mt-3 text-sm leading-relaxed text-muted">
+                Focus wurde entwickelt, um Aufgaben, Familienorganisation und Einkaufslisten einfach, modern und
+                übersichtlich an einem Ort zu verwalten.
+              </p>
+            </div>
+          </Section>
         </Card>
       )}
     </div>
