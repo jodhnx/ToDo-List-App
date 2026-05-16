@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Calendar, Pencil, Trash2, Pin, Copy } from 'lucide-react'
+import { Bell, Calendar, Pencil, Trash2, Pin, Copy } from 'lucide-react'
 import Badge from '../ui/Badge'
 import { getCategory, getPriority } from '../../lib/constants'
 import { isOverdue } from '../../lib/todoUtils'
@@ -10,6 +10,14 @@ export default function TodoItem({ todo, onToggle, onEdit, onDelete, onPin, onDu
   const category = getCategory(todo.category)
   const priority = getPriority(todo.priority)
   const overdue = isOverdue(todo)
+  const reminderLabel = todo.reminder_at
+    ? new Date(todo.reminder_at).toLocaleString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : ''
 
   return (
     <motion.li
@@ -60,6 +68,12 @@ export default function TodoItem({ todo, onToggle, onEdit, onDelete, onPin, onDu
             <span className={`flex items-center gap-1 text-xs ${overdue ? 'text-rose-400' : 'text-muted'}`}>
               <Calendar className="h-3 w-3" />
               {formatDueLabel(todo)}
+            </span>
+          )}
+          {reminderLabel && (
+            <span className="flex items-center gap-1 rounded bg-indigo-500/10 px-1.5 py-0.5 text-xs text-indigo-300">
+              <Bell className="h-3 w-3" />
+              {reminderLabel}
             </span>
           )}
         </div>

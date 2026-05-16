@@ -5,6 +5,8 @@ import Button from '../ui/Button'
 import { CATEGORIES, PRIORITIES } from '../../lib/constants'
 import AITaskTools from '../ai/AITaskTools'
 import { suggestTaskMeta } from '../../lib/ai'
+import { requestNotificationPermission } from '../../lib/notifications'
+import { saveSettings } from '../../lib/settings'
 
 const emptyForm = {
   title: '',
@@ -14,6 +16,9 @@ const emptyForm = {
   due_date: '',
   due_time: '',
   useTime: false,
+  reminder_date: '',
+  reminder_time: '',
+  useReminder: false,
   pinned: false,
 }
 
@@ -27,6 +32,8 @@ const TEMPLATES = [
 function fromInitial(initial) {
   if (!initial) return emptyForm
   const dueTime = initial.due_time ? String(initial.due_time).slice(0, 5) : ''
+  const reminder = initial.reminder_at ? new Date(initial.reminder_at) : null
+  const hasReminder = reminder && !Number.isNaN(reminder.getTime())
   return {
     title: initial.title || '',
     description: initial.description || '',
@@ -35,8 +42,29 @@ function fromInitial(initial) {
     due_date: initial.due_date ? String(initial.due_date).slice(0, 10) : '',
     due_time: dueTime,
     useTime: !!dueTime,
+    reminder_date: hasReminder ? toDateInput(reminder) : '',
+    reminder_time: hasReminder ? toTimeInput(reminder) : '',
+    useReminder: !!hasReminder,
     pinned: !!initial.pinned,
   }
+}
+
+function toDateInput(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function toTimeInput(date) {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+function buildReminderAt(form) {
+  if (!form.useReminder || !form.reminder_date || !form.reminder_time) return null
+  const date = new Date(`${form.reminder_date}T${form.reminder_time}`)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toISOString()
 }
 
 export default function TodoForm({ initial, onSubmit, onCancel, submitting = false }) {
@@ -54,6 +82,9 @@ export default function TodoForm({ initial, onSubmit, onCancel, submitting = fal
         next.due_time = ''
         next.useTime = false
       }
+      if (field === 'reminder_date' && !value) {
+        next.reminder_time = ''
+      }
       return next
     })
 
@@ -63,6 +94,29 @@ export default function TodoForm({ initial, onSubmit, onCancel, submitting = fal
         const meta = await suggestTaskMeta(value, form.description)
         setForm((f) => (f.title === value ? { ...f, ...meta } : f))
       }, 600)
+    }
+  }
+
+  const enableReminder = async (checked) => {
+    setForm((f) => {
+      const defaultReminder = new Date(Date.now() + 60 * 60 * 1000)
+      const next = { ...f, useReminder: checked }
+      if (checked && !next.reminder_date) {
+        next.reminder_date = next.due_date || toDateInput(defaultReminder)
+      }
+      if (checked && !next.reminder_time) {
+        next.reminder_time = next.due_time || toTimeInput(defaultReminder)
+      }
+      if (!checked) {
+        next.reminder_date = ''
+        next.reminder_time = ''
+      }
+      return next
+    })
+
+    if (checked) {
+      const permission = await requestNotificationPermission()
+      if (permission === 'granted') saveSettings({ notifications: true })
     }
   }
 
@@ -85,6 +139,7 @@ export default function TodoForm({ initial, onSubmit, onCancel, submitting = fal
       priority: form.priority,
       due_date: form.due_date || null,
       due_time: form.due_date && form.useTime && form.due_time ? form.due_time : null,
+      reminder_at: buildReminderAt(form),
       pinned: form.pinned,
     })
   }
@@ -164,6 +219,42 @@ export default function TodoForm({ initial, onSubmit, onCancel, submitting = fal
           )}
         </div>
       )}
+
+      <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+          <input
+            type="checkbox"
+            checked={form.useReminder}
+            onChange={(e) => enableReminder(e.target.checked)}
+            className="rounded text-indigo-500"
+          />
+          Handy-Benachrichtigung erinnern
+        </label>
+        {form.useReminder && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Benachrichtigungsdatum"
+              type="date"
+              name="reminder_date"
+              value={form.reminder_date}
+              onChange={handleChange('reminder_date')}
+              required
+            />
+            <Input
+              label="Benachrichtigungszeit"
+              type="time"
+              name="reminder_time"
+              value={form.reminder_time}
+              onChange={handleChange('reminder_time')}
+              required
+            />
+          </div>
+        )}
+        <p className="text-xs text-muted">
+          Auf dem Handy funktioniert das zuverlässig, wenn Benachrichtigungen erlaubt sind und Focus als App installiert
+          oder im Browser geöffnet ist.
+        </p>
+      </div>
 
       <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
         <input type="checkbox" checked={form.pinned} onChange={handleChange('pinned')} className="rounded text-indigo-500" />

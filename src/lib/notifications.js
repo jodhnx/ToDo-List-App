@@ -2,6 +2,7 @@ import { getSettings } from './settings'
 import { isDueToday, isOverdue } from './todoUtils'
 
 const SHOWN_KEY = 'focus_notif_shown'
+const REMINDER_SHOWN_KEY = 'focus_reminders_shown'
 
 /** Sichere Referenz — auf iOS/Safari oft nicht verfügbar (sonst ReferenceError) */
 function getNotificationAPI() {
@@ -48,6 +49,24 @@ function markShown(id) {
   }
 }
 
+function getShownReminders() {
+  try {
+    return JSON.parse(localStorage.getItem(REMINDER_SHOWN_KEY) || '[]')
+  } catch {
+    return []
+  }
+}
+
+function markReminderShown(id) {
+  try {
+    const shown = new Set(getShownReminders())
+    shown.add(id)
+    localStorage.setItem(REMINDER_SHOWN_KEY, JSON.stringify([...shown]))
+  } catch {
+    /* ignore */
+  }
+}
+
 export function isNotificationSupported() {
   return getNotificationAPI() !== null
 }
@@ -87,8 +106,8 @@ function showNotification(title, body, tag) {
 
   const opts = {
     body,
-    icon: '/favicon.svg',
-    badge: '/favicon.svg',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
     tag: tag || 'focus',
     renotify: true,
   }
@@ -145,6 +164,27 @@ export function checkAndNotifyTodos(todos) {
       }
     })
   }
+}
+
+/** Einzelne Aufgabe zum eingestellten Erinnerungszeitpunkt melden */
+export function checkReminderTodos(todos) {
+  if (!isNotificationSupported() || getPermission() !== 'granted') return
+
+  const settings = getSettings()
+  if (!settings.notifications) return
+
+  const shown = getShownReminders()
+  const now = Date.now()
+
+  ;(todos || [])
+    .filter((t) => !t.completed && t.reminder_at && !shown.includes(String(t.id)))
+    .forEach((t) => {
+      const reminderTime = new Date(t.reminder_at).getTime()
+      if (Number.isNaN(reminderTime) || reminderTime > now) return
+
+      showNotification('Aufgaben-Erinnerung', t.title, `reminder-${t.id}`)
+      markReminderShown(String(t.id))
+    })
 }
 
 /** Morgen-Briefing um eingestellte Stunde */

@@ -34,6 +34,7 @@ function buildRow(payload) {
     priority: payload.priority,
     due_date: payload.due_date || null,
     due_time: payload.due_time || null,
+    reminder_at: payload.reminder_at || null,
     completed: false,
     pinned: !!payload.pinned,
   }
@@ -44,6 +45,10 @@ function stripUnknownColumns(row, err) {
   let next = { ...row }
   if (/due_time|column/i.test(err.message)) {
     const { due_time, ...rest } = next
+    next = rest
+  }
+  if (/reminder_at|column/i.test(err.message)) {
+    const { reminder_at, ...rest } = next
     next = rest
   }
   if (/pinned|column/i.test(err.message)) {
@@ -129,7 +134,7 @@ export function useTodos() {
       .select()
       .single()
 
-    if (err && /pinned|due_time|column/i.test(err.message)) {
+    if (err && /pinned|due_time|reminder_at|column/i.test(err.message)) {
       const slim = stripUnknownColumns(row, err)
       const retry = await supabase
         .from('todos')
@@ -216,6 +221,7 @@ export function useTodos() {
       priority: todo.priority,
       due_date: todo.due_date,
       due_time: todo.due_time,
+      reminder_at: todo.reminder_at,
       pinned: false,
     })
 

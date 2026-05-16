@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.todos (
   priority TEXT NOT NULL CHECK (priority IN ('niedrig', 'mittel', 'hoch')),
   due_date DATE,
   due_time TEXT,
+  reminder_at TIMESTAMPTZ,
   completed BOOLEAN NOT NULL DEFAULT false,
   pinned BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

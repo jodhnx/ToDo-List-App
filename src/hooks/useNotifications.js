@@ -3,6 +3,7 @@ import {
   registerServiceWorker,
   checkAndNotifyTodos,
   checkMorningBriefing,
+  checkReminderTodos,
   isNotificationSupported,
 } from '../lib/notifications'
 import { getSettings } from '../lib/settings'
@@ -24,6 +25,7 @@ export function useNotifications(todos) {
     try {
       checkAndNotifyTodos(todos)
       checkMorningBriefing(todos)
+      checkReminderTodos(todos)
     } catch (e) {
       console.warn('Notifications:', e)
     }
@@ -32,10 +34,11 @@ export function useNotifications(todos) {
       try {
         checkAndNotifyTodos(todos)
         checkMorningBriefing(todos)
+        checkReminderTodos(todos)
       } catch (e) {
         console.warn('Notifications:', e)
       }
-    }, 60_000 * 15)
+    }, 60_000)
 
     return () => clearInterval(interval)
   }, [todos])
