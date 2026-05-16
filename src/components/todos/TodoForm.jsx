@@ -8,6 +8,7 @@ import { suggestTaskMeta } from '../../lib/ai'
 import { requestNotificationPermission } from '../../lib/notifications'
 import { saveSettings } from '../../lib/settings'
 import SpeechInputButton from '../ui/SpeechInputButton'
+import { HOUSEHOLD_TASK_SUGGESTIONS } from '../../lib/householdTasks'
 
 const emptyForm = {
   title: '',
@@ -136,6 +137,15 @@ export default function TodoForm({ initial, onSubmit, onCancel, submitting = fal
     }))
   }
 
+  const applyHouseholdTask = (task) => {
+    setForm((f) => ({
+      ...f,
+      title: task.title,
+      category: task.personalCategory,
+      priority: task.priority,
+    }))
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.title.trim() || submitting) return
@@ -154,17 +164,35 @@ export default function TodoForm({ initial, onSubmit, onCancel, submitting = fal
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {!initial && (
-        <div className="flex flex-wrap gap-2">
-          {TEMPLATES.map((t) => (
-            <button
-              key={t.label}
-              type="button"
-              onClick={() => applyTemplate(t)}
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-muted hover:border-indigo-500/30 hover:text-indigo-300"
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.label}
+                type="button"
+                onClick={() => applyTemplate(t)}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-muted hover:border-indigo-500/30 hover:text-indigo-300"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3">
+            <p className="text-sm font-semibold text-emerald-100">Schnelle Haushalts-Aufgaben</p>
+            <p className="mt-1 text-xs text-emerald-100/75">Antippen statt tippen.</p>
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {HOUSEHOLD_TASK_SUGGESTIONS.map((task) => (
+                <button
+                  key={task.title}
+                  type="button"
+                  onClick={() => applyHouseholdTask(task)}
+                  className="min-h-11 rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-left text-sm font-semibold text-primary hover:bg-white/15"
+                >
+                  + {task.title}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

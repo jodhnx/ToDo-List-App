@@ -1,0 +1,17 @@
+export const HOUSEHOLD_TASK_SUGGESTIONS = [
+  { title: 'Klo putzen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'mittel' },
+  { title: 'Küche putzen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'mittel' },
+  { title: 'Geschirrspüler ausräumen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'niedrig' },
+  { title: 'Müll rausbringen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'mittel' },
+  { title: 'Staubsaugen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'mittel' },
+  { title: 'Wäsche waschen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'mittel' },
+  { title: 'Bett machen', personalCategory: 'privat', groupCategory: 'family', priority: 'niedrig' },
+  { title: 'Fenster putzen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'niedrig' },
+  { title: 'Pflanzen gießen', personalCategory: 'privat', groupCategory: 'family', priority: 'niedrig' },
+  { title: 'Einkaufen gehen', personalCategory: 'privat', groupCategory: 'shopping', priority: 'mittel' },
+  { title: 'Bad reinigen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'mittel' },
+  { title: 'Kühlschrank reinigen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'niedrig' },
+  { title: 'Katzenklo reinigen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'mittel' },
+  { title: 'Boden wischen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'mittel' },
+  { title: 'Post holen', personalCategory: 'privat', groupCategory: 'family', priority: 'niedrig' },
+]

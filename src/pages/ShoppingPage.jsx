@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, Loader2, Plus, Search, ShoppingBasket, Trash2, X } from 'lucide-react'
+import { CheckCircle2, Loader2, Plus, Search, ShoppingBasket, Star, Trash2, X } from 'lucide-react'
 import { useShoppingList } from '../hooks/useShoppingList'
+import { useShoppingFavorites } from '../hooks/useShoppingFavorites'
 import { useToast } from '../context/ToastContext'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
@@ -26,6 +27,14 @@ function appendText(current, next) {
 
 export default function ShoppingPage() {
   const { items, loading, syncing, error, createItem, deleteItem, toggleItem, deleteChecked } = useShoppingList()
+  const {
+    groupedFavorites,
+    error: favoritesError,
+    isFavorite,
+    addFavorite,
+    removeFavorite,
+    recordFavoriteUse,
+  } = useShoppingFavorites()
   const { toast } = useToast()
   const [name, setName] = useState('')
   const [quantity, setQuantity] = useState('1')
@@ -112,6 +121,34 @@ export default function ShoppingPage() {
 
   const handleSuggestion = (product) => {
     addItem({ name: product, quantity: quantity || '1', category, note: '' })
+  }
+
+  const handleFavoriteAdd = async (favorite) => {
+    await addItem({
+      name: favorite.name,
+      quantity: favorite.default_quantity || '1',
+      category: favorite.category,
+      note: '',
+    })
+    await recordFavoriteUse(favorite)
+  }
+
+  const toggleFavorite = async (item) => {
+    try {
+      if (isFavorite(item.name, item.category)) {
+        await removeFavorite(item)
+        toast('Favorit entfernt', 'info')
+      } else {
+        await addFavorite({
+          name: item.name,
+          category: item.category,
+          default_quantity: item.quantity || '1',
+        })
+        toast('Als Favorit gespeichert', 'success')
+      }
+    } catch (err) {
+      toast(err.message || 'Favorit konnte nicht gespeichert werden', 'error')
+    }
   }
 
   const handleClearChecked = async () => {
@@ -205,6 +242,39 @@ export default function ShoppingPage() {
         </div>
       </div>
 
+      {favoritesError && <p className="text-xs text-amber-300">{favoritesError}</p>}
+      {Object.keys(groupedFavorites).length > 0 && (
+        <section className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3">
+          <div className="flex items-center gap-2 text-amber-100">
+            <Star className="h-5 w-5 fill-amber-300 text-amber-300" />
+            <h2 className="text-lg font-bold">Favoriten</h2>
+          </div>
+          <p className="mt-1 text-sm text-amber-100/80">Häufige Produkte schnell wieder hinzufügen.</p>
+          <div className="mt-3 space-y-3">
+            {Object.entries(groupedFavorites).map(([favoriteCategory, favoriteItems]) => (
+              <div key={favoriteCategory} className="space-y-2">
+                <p className="text-sm font-semibold text-amber-100/90">{favoriteCategory}</p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {favoriteItems.map((favorite) => (
+                    <button
+                      key={favorite.id}
+                      type="button"
+                      onClick={() => handleFavoriteAdd(favorite)}
+                      className="flex min-h-12 items-center justify-between gap-2 rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-left font-semibold text-primary hover:bg-white/15"
+                    >
+                      <span>+ {favorite.name}</span>
+                      <span className="rounded-full bg-white/15 px-2 py-0.5 text-sm">
+                        x{favorite.default_quantity || '1'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
@@ -277,6 +347,15 @@ export default function ShoppingPage() {
                       </div>
                       <Button variant="ghost" size="sm" onClick={() => deleteItem(item.id)} aria-label="Produkt löschen">
                         <Trash2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleFavorite(item)}
+                        aria-label={isFavorite(item.name, item.category) ? 'Favorit entfernen' : 'Als Favorit speichern'}
+                        className={isFavorite(item.name, item.category) ? 'text-amber-300' : ''}
+                      >
+                        <Star className={`h-4 w-4 ${isFavorite(item.name, item.category) ? 'fill-amber-300' : ''}`} />
                       </Button>
                     </motion.div>
                   ))}

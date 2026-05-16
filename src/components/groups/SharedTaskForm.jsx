@@ -7,6 +7,7 @@ import { resolveMemberByUsername } from '../../lib/groupApi'
 import SpeechInputButton from '../ui/SpeechInputButton'
 import { requestNotificationPermission } from '../../lib/notifications'
 import { saveSettings } from '../../lib/settings'
+import { HOUSEHOLD_TASK_SUGGESTIONS } from '../../lib/householdTasks'
 
 const empty = {
   title: '',
@@ -84,6 +85,15 @@ export default function SharedTaskForm({ members, onSubmit, submitting }) {
     setForm((f) => ({ ...f, [field]: f[field] ? `${f[field].trim()} ${clean}` : clean }))
   }
 
+  const applyHouseholdTask = (task) => {
+    setForm((f) => ({
+      ...f,
+      title: task.title,
+      category: task.groupCategory,
+      priority: task.priority,
+    }))
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.title.trim()) return
@@ -120,6 +130,22 @@ export default function SharedTaskForm({ members, onSubmit, submitting }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3">
+        <p className="text-sm font-semibold text-emerald-100">Schnelle Familien-Aufgaben</p>
+        <p className="mt-1 text-xs text-emerald-100/75">Aufgabe antippen und bei Bedarf einem Mitglied zuweisen.</p>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {HOUSEHOLD_TASK_SUGGESTIONS.map((task) => (
+            <button
+              key={task.title}
+              type="button"
+              onClick={() => applyHouseholdTask(task)}
+              className="min-h-11 rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-left text-sm font-semibold text-primary hover:bg-white/15"
+            >
+              + {task.title}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="space-y-2">
         <Input label="Titel" value={form.title} onChange={change('title')} required />
         <SpeechInputButton label="Titel diktieren" onTranscript={(text) => appendField('title', text)} />

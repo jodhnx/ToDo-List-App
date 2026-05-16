@@ -4,6 +4,8 @@ const TODOS_PREFIX = 'focus_todos_'
 const SHOPPING_PREFIX = 'focus_shopping_'
 const TODO_SYNC_PREFIX = 'focus_todo_sync_'
 const SHOPPING_SYNC_PREFIX = 'focus_shopping_sync_'
+const SHOPPING_FAVORITES_PREFIX = 'focus_shopping_favorites_'
+const SHOPPING_FAVORITES_SYNC_PREFIX = 'focus_shopping_favorites_sync_'
 
 /** Einfacher Hash für lokale Passwörter (nur Offline-Demo) */
 function hashPassword(password) {
@@ -177,6 +179,14 @@ function shoppingSyncKey(userId) {
   return `${SHOPPING_SYNC_PREFIX}${userId}`
 }
 
+function shoppingFavoritesKey(userId) {
+  return `${SHOPPING_FAVORITES_PREFIX}${userId}`
+}
+
+function shoppingFavoritesSyncKey(userId) {
+  return `${SHOPPING_FAVORITES_SYNC_PREFIX}${userId}`
+}
+
 export function localGetShoppingItems(userId) {
   return readJSON(shoppingKey(userId), [])
 }
@@ -237,4 +247,61 @@ export function localQueueShoppingSync(userId, op) {
 
 export function localClearShoppingSyncQueue(userId) {
   localStorage.removeItem(shoppingSyncKey(userId))
+}
+
+export function localGetShoppingFavorites(userId) {
+  return readJSON(shoppingFavoritesKey(userId), [])
+}
+
+export function localSaveShoppingFavorites(userId, favorites) {
+  writeJSON(shoppingFavoritesKey(userId), favorites)
+}
+
+export function localCreateShoppingFavorite(userId, data) {
+  const favorites = localGetShoppingFavorites(userId)
+  const normalized = data.name.trim().toLowerCase()
+  const existing = favorites.find(
+    (favorite) =>
+      favorite.name.trim().toLowerCase() === normalized &&
+      (favorite.category || 'Sonstiges') === (data.category || 'Sonstiges'),
+  )
+  if (existing) return existing
+  const favorite = {
+    id: crypto.randomUUID(),
+    user_id: userId,
+    name: data.name.trim(),
+    category: data.category || 'Sonstiges',
+    default_quantity: data.default_quantity?.trim() || data.quantity?.trim() || '1',
+    use_count: Number(data.use_count || 0),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+  favorites.unshift(favorite)
+  localSaveShoppingFavorites(userId, favorites)
+  return favorite
+}
+
+export function localDeleteShoppingFavorite(userId, id) {
+  localSaveShoppingFavorites(
+    userId,
+    localGetShoppingFavorites(userId).filter((favorite) => favorite.id !== id),
+  )
+}
+
+export function localGetShoppingFavoritesSyncQueue(userId) {
+  return readJSON(shoppingFavoritesSyncKey(userId), [])
+}
+
+export function localSaveShoppingFavoritesSyncQueue(userId, queue) {
+  writeJSON(shoppingFavoritesSyncKey(userId), queue)
+}
+
+export function localQueueShoppingFavoriteSync(userId, op) {
+  const queue = localGetShoppingFavoritesSyncQueue(userId)
+  queue.push({ ...op, queued_at: new Date().toISOString() })
+  localSaveShoppingFavoritesSyncQueue(userId, queue)
+}
+
+export function localClearShoppingFavoritesSyncQueue(userId) {
+  localStorage.removeItem(shoppingFavoritesSyncKey(userId))
 }
