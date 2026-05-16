@@ -1,6 +1,7 @@
 const USERS_KEY = 'focus_users'
 const SESSION_KEY = 'focus_session'
 const TODOS_PREFIX = 'focus_todos_'
+const SHOPPING_PREFIX = 'focus_shopping_'
 
 /** Einfacher Hash für lokale Passwörter (nur Offline-Demo) */
 function hashPassword(password) {
@@ -140,4 +141,52 @@ export function localUpdateTodo(userId, id, updates) {
 export function localDeleteTodo(userId, id) {
   const todos = localGetTodos(userId).filter((t) => t.id !== id)
   localSaveTodos(userId, todos)
+}
+
+// ——— Einkaufsliste (lokaler Fallback) ———
+
+function shoppingKey(userId) {
+  return `${SHOPPING_PREFIX}${userId}`
+}
+
+export function localGetShoppingItems(userId) {
+  return readJSON(shoppingKey(userId), [])
+}
+
+export function localSaveShoppingItems(userId, items) {
+  writeJSON(shoppingKey(userId), items)
+}
+
+export function localCreateShoppingItem(userId, data) {
+  const items = localGetShoppingItems(userId)
+  const item = {
+    id: crypto.randomUUID(),
+    user_id: userId,
+    name: data.name.trim(),
+    quantity: data.quantity?.trim() || '1',
+    category: data.category || 'Sonstiges',
+    note: data.note?.trim() || '',
+    checked: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+  items.unshift(item)
+  localSaveShoppingItems(userId, items)
+  return item
+}
+
+export function localUpdateShoppingItem(userId, id, updates) {
+  const items = localGetShoppingItems(userId)
+  const idx = items.findIndex((item) => item.id === id)
+  if (idx === -1) return null
+  items[idx] = { ...items[idx], ...updates, updated_at: new Date().toISOString() }
+  localSaveShoppingItems(userId, items)
+  return items[idx]
+}
+
+export function localDeleteShoppingItem(userId, id) {
+  localSaveShoppingItems(
+    userId,
+    localGetShoppingItems(userId).filter((item) => item.id !== id),
+  )
 }

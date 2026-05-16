@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { CheckCircle2, Sparkles, Shield, Bell } from 'lucide-react'
+import { CheckCircle2, Sparkles, Shield, Bell, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import AuthForm from '../components/auth/AuthForm'
 
@@ -12,6 +12,14 @@ const highlights = [
 
 export default function AuthPage() {
   const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center gradient-mesh">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
+      </div>
+    )
+  }
 
   if (!loading && user) return <Navigate to="/app" replace />
 

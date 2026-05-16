@@ -1,5 +1,5 @@
 import { NavLink, Outlet, Link } from 'react-router-dom'
-import { LayoutDashboard, ListTodo, Settings, Cloud, CloudOff, Users, User } from 'lucide-react'
+import { LayoutDashboard, ListTodo, Settings, Cloud, CloudOff, Users, User, ShoppingBasket } from 'lucide-react'
 import Navbar from './Navbar'
 import { useAuth } from '../../context/AuthContext'
 import { TodosProvider, useTodosContext } from '../../context/TodosContext'
@@ -10,6 +10,7 @@ import UsernameGate from './UsernameGate'
 const navItems = [
   { to: '/app', end: true, icon: LayoutDashboard, label: 'Übersicht' },
   { to: '/app/tasks', icon: ListTodo, label: 'Aufgaben' },
+  { to: '/app/shopping', icon: ShoppingBasket, label: 'Einkauf' },
   { to: '/app/family', icon: Users, label: 'Familie' },
   { to: '/app/settings', icon: Settings, label: 'Einstellungen' },
 ]

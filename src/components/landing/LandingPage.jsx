@@ -10,6 +10,7 @@ import {
   Tag,
   Wifi,
   Pin,
+  ShoppingBasket,
 } from 'lucide-react'
 import Navbar from '../layout/Navbar'
 import Button from '../ui/Button'
@@ -45,6 +46,11 @@ const features = [
     icon: Filter,
     title: 'Suche & Filter',
     desc: 'Finde Aufgaben schnell nach Status, Kategorie oder Priorität.',
+  },
+  {
+    icon: ShoppingBasket,
+    title: 'Einkaufsliste',
+    desc: 'Produkte suchen, Schnellvorschläge nutzen, Mengen setzen und beim Einkaufen abhaken.',
   },
   {
     icon: LayoutDashboard,

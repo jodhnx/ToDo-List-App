@@ -8,6 +8,7 @@ import Landing from './pages/Landing'
 import AuthPage from './pages/AuthPage'
 import HomePage from './pages/HomePage'
 import TasksPage from './pages/TasksPage'
+import ShoppingPage from './pages/ShoppingPage'
 import SettingsPage from './pages/SettingsPage'
 import FamilyPage from './pages/FamilyPage'
 import GroupDetailPage from './pages/GroupDetailPage'
@@ -35,6 +36,7 @@ export default function App() {
               >
                 <Route index element={<HomePage />} />
                 <Route path="tasks" element={<TasksPage />} />
+                <Route path="shopping" element={<ShoppingPage />} />
                 <Route path="family" element={<FamilyPage />} />
                 <Route path="family/:groupId" element={<GroupDetailPage />} />
                 <Route path="profile" element={<ProfilePage />} />

@@ -1,0 +1,323 @@
+import { useMemo, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { CheckCircle2, Loader2, Plus, Search, ShoppingBasket, Trash2, X } from 'lucide-react'
+import { useShoppingList } from '../hooks/useShoppingList'
+import { useToast } from '../context/ToastContext'
+import Button from '../components/ui/Button'
+import Card from '../components/ui/Card'
+import Input from '../components/ui/Input'
+import Select from '../components/ui/Select'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
+
+const CATEGORIES = [
+  'Obst & Gemüse',
+  'Kühlregal',
+  'Backwaren',
+  'Getränke',
+  'Drogerie',
+  'Haushalt',
+  'Sonstiges',
+]
+
+const PRODUCT_IDEAS = [
+  ['Milch', 'Kühlregal'],
+  ['Eier', 'Kühlregal'],
+  ['Butter', 'Kühlregal'],
+  ['Joghurt', 'Kühlregal'],
+  ['Käse', 'Kühlregal'],
+  ['Bananen', 'Obst & Gemüse'],
+  ['Äpfel', 'Obst & Gemüse'],
+  ['Tomaten', 'Obst & Gemüse'],
+  ['Gurken', 'Obst & Gemüse'],
+  ['Kartoffeln', 'Obst & Gemüse'],
+  ['Brot', 'Backwaren'],
+  ['Brötchen', 'Backwaren'],
+  ['Wasser', 'Getränke'],
+  ['Saft', 'Getränke'],
+  ['Kaffee', 'Getränke'],
+  ['Zahnpasta', 'Drogerie'],
+  ['Duschgel', 'Drogerie'],
+  ['Waschmittel', 'Haushalt'],
+  ['Küchenrolle', 'Haushalt'],
+  ['Nudeln', 'Sonstiges'],
+]
+
+const categoryOptions = CATEGORIES.map((category) => ({ value: category, label: category }))
+
+function inferCategory(name) {
+  const match = PRODUCT_IDEAS.find(([product]) => product.toLowerCase() === name.trim().toLowerCase())
+  return match?.[1] || 'Sonstiges'
+}
+
+export default function ShoppingPage() {
+  const { items, loading, syncing, error, createItem, updateItem, deleteItem, toggleItem, deleteChecked } =
+    useShoppingList()
+  const { toast } = useToast()
+  const [name, setName] = useState('')
+  const [quantity, setQuantity] = useState('1')
+  const [category, setCategory] = useState('Sonstiges')
+  const [note, setNote] = useState('')
+  const [search, setSearch] = useState('')
+  const [showChecked, setShowChecked] = useState(true)
+  const [confirmClear, setConfirmClear] = useState(false)
+
+  const stats = useMemo(
+    () => ({
+      total: items.length,
+      open: items.filter((item) => !item.checked).length,
+      checked: items.filter((item) => item.checked).length,
+    }),
+    [items],
+  )
+
+  const suggestions = useMemo(() => {
+    const q = name.trim().toLowerCase()
+    if (!q) return PRODUCT_IDEAS.slice(0, 8)
+    return PRODUCT_IDEAS.filter(([product]) => product.toLowerCase().includes(q)).slice(0, 8)
+  }, [name])
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return items
+      .filter((item) => showChecked || !item.checked)
+      .filter(
+        (item) =>
+          !q ||
+          item.name.toLowerCase().includes(q) ||
+          item.category.toLowerCase().includes(q) ||
+          (item.note || '').toLowerCase().includes(q),
+      )
+      .sort((a, b) => Number(a.checked) - Number(b.checked) || a.category.localeCompare(b.category))
+  }, [items, search, showChecked])
+
+  const grouped = useMemo(() => {
+    return filtered.reduce((acc, item) => {
+      const key = item.category || 'Sonstiges'
+      acc[key] = acc[key] || []
+      acc[key].push(item)
+      return acc
+    }, {})
+  }, [filtered])
+
+  const handleNameChange = (value) => {
+    setName(value)
+    if (category === 'Sonstiges') setCategory(inferCategory(value))
+  }
+
+  const addItem = async (payload) => {
+    try {
+      await createItem(payload)
+      setName('')
+      setQuantity('1')
+      setCategory('Sonstiges')
+      setNote('')
+      toast('Produkt hinzugefügt', 'success')
+    } catch (err) {
+      toast(err.message || 'Produkt konnte nicht hinzugefügt werden', 'error')
+    }
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    addItem({ name, quantity, category, note })
+  }
+
+  const handleSuggestion = ([product, nextCategory]) => {
+    addItem({ name: product, quantity: '1', category: nextCategory, note: '' })
+  }
+
+  const handleClearChecked = async () => {
+    const count = await deleteChecked()
+    setConfirmClear(false)
+    toast(`${count} erledigte Produkte entfernt`, 'success')
+  }
+
+  return (
+    <div className="space-y-5 pb-4">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm text-muted">Einkaufen ohne Zettelchaos</p>
+          <h1 className="text-2xl font-bold text-primary sm:text-3xl">Einkaufsliste</h1>
+          <p className="mt-1 text-sm text-muted">
+            {loading ? 'Lädt…' : `${stats.open} offen · ${stats.checked} erledigt`}
+            {syncing && ' · synchronisiert…'}
+          </p>
+          {error && <p className="mt-1 text-xs text-amber-300">{error}</p>}
+        </div>
+        <Button
+          variant="secondary"
+          disabled={!stats.checked}
+          onClick={() => setConfirmClear(true)}
+          className="gap-2"
+        >
+          <Trash2 className="h-4 w-4" />
+          Erledigte löschen
+        </Button>
+      </header>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card className="p-4">
+          <ShoppingBasket className="mb-2 h-5 w-5 text-indigo-300" />
+          <p className="text-2xl font-bold text-primary">{stats.total}</p>
+          <p className="text-xs text-muted">Produkte gesamt</p>
+        </Card>
+        <Card className="p-4">
+          <Plus className="mb-2 h-5 w-5 text-amber-300" />
+          <p className="text-2xl font-bold text-primary">{stats.open}</p>
+          <p className="text-xs text-muted">Noch einkaufen</p>
+        </Card>
+        <Card className="p-4">
+          <CheckCircle2 className="mb-2 h-5 w-5 text-emerald-300" />
+          <p className="text-2xl font-bold text-primary">{stats.checked}</p>
+          <p className="text-xs text-muted">Schon im Wagen</p>
+        </Card>
+      </div>
+
+      <Card>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-[1fr_120px_180px]">
+            <Input
+              label="Produkt suchen oder eingeben"
+              value={name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              placeholder="z. B. Milch, Bananen, Waschmittel"
+              required
+            />
+            <Input label="Menge" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="1" />
+            <Select
+              label="Kategorie"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              options={categoryOptions}
+            />
+          </div>
+          <Input
+            label="Notiz optional"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Marke, Laden, Angebot…"
+          />
+          <div className="flex flex-wrap gap-2">
+            {suggestions.map((idea) => (
+              <button
+                key={idea[0]}
+                type="button"
+                onClick={() => handleSuggestion(idea)}
+                className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300 hover:border-indigo-400/50 hover:text-primary"
+              >
+                + {idea[0]}
+              </button>
+            ))}
+          </div>
+          <Button type="submit" className="w-full sm:w-auto">
+            <Plus className="h-4 w-4" />
+            Hinzufügen
+          </Button>
+        </form>
+      </Card>
+
+      <div className="rounded-2xl border border-white/10 bg-surface/50 p-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="In deiner Einkaufsliste suchen…"
+              className="input-field pl-9"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input
+              type="checkbox"
+              checked={showChecked}
+              onChange={(e) => setShowChecked(e.target.checked)}
+              className="rounded text-indigo-500"
+            />
+            Abgehakte anzeigen
+          </label>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-white/15 py-16 text-center">
+          <p className="text-muted">
+            {items.length === 0 ? 'Noch keine Produkte auf der Liste.' : 'Keine Treffer gefunden.'}
+          </p>
+          <p className="mt-2 text-xs text-muted">Nutze die Suche oben oder einen Schnellvorschlag.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {Object.entries(grouped).map(([group, groupItems]) => (
+            <section key={group} className="space-y-2">
+              <h2 className="text-sm font-semibold text-muted">{group}</h2>
+              <div className="space-y-2">
+                <AnimatePresence mode="popLayout">
+                  {groupItems.map((item) => (
+                    <motion.div
+                      key={item.id}
+                      layout
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -16 }}
+                      className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleItem(item)}
+                        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                          item.checked
+                            ? 'border-emerald-400 bg-emerald-400 text-zinc-950'
+                            : 'border-zinc-500 text-transparent'
+                        }`}
+                        aria-label={item.checked ? 'Produkt wieder öffnen' : 'Produkt abhaken'}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className={`font-medium ${item.checked ? 'text-muted line-through' : 'text-primary'}`}>
+                            {item.name}
+                          </p>
+                          <span className="rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs text-indigo-300">
+                            {item.quantity}
+                          </span>
+                        </div>
+                        {item.note && <p className="mt-1 text-xs text-muted">{item.note}</p>}
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => deleteItem(item.id)} aria-label="Löschen">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirmClear}
+        title="Erledigte Produkte löschen?"
+        message="Alle abgehakten Produkte werden aus deiner Einkaufsliste entfernt."
+        confirmLabel="Löschen"
+        onConfirm={handleClearChecked}
+        onCancel={() => setConfirmClear(false)}
+      />
+    </div>
+  )
+}
