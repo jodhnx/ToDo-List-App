@@ -58,7 +58,7 @@ export async function createGroup({ name, icon, userId }) {
   const { data: group, error: gErr } = await supabase
     .from('groups')
     .insert({ name: trimmed, icon: iconVal, created_by: userId })
-    .select('id, name, icon, created_by, created_at')
+    .select('*')
     .single()
 
   if (gErr) throw new Error(formatGroupError(gErr))
@@ -89,7 +89,7 @@ export async function fetchMyGroups(userId) {
   const groupIds = memberships.map((m) => m.group_id)
   const { data: groups, error: gErr } = await supabase
     .from('groups')
-    .select('id, name, icon, created_by, created_at')
+    .select('*')
     .in('id', groupIds)
 
   if (gErr) throw new Error(formatGroupError(gErr))
@@ -106,12 +106,24 @@ export async function fetchMyGroups(userId) {
     memberCounts[row.group_id] = (memberCounts[row.group_id] || 0) + 1
   }
 
+  const ownerIds = [...new Set((groups || []).map((g) => g.owner_id || g.created_by).filter(Boolean))]
+  let ownerProfiles = {}
+  if (ownerIds.length) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', ownerIds)
+    ownerProfiles = Object.fromEntries((profiles || []).map((p) => [p.id, p]))
+  }
+
   const meta = Object.fromEntries(memberships.map((m) => [m.group_id, m]))
   return (groups || []).map((g) => ({
     ...g,
+    owner_id: g.owner_id || g.created_by,
     my_role: meta[g.id]?.role,
     joined_at: meta[g.id]?.joined_at,
     member_count: memberCounts[g.id] || 0,
+    owner: ownerProfiles[g.owner_id || g.created_by] || null,
   }))
 }
 
@@ -412,18 +424,21 @@ export async function setGroupMemberRole(groupId, targetUserId, newRole) {
   if (error) throw new Error(formatGroupError(error))
 }
 
-/** Gruppe umbenennen (nur Owner/Oberadmin via RPC) */
-export async function renameGroup(groupId, name) {
+/** Gruppe verwalten (nur Owner/Oberadmin via RPC) */
+export async function updateGroup(groupId, { name, icon }) {
   const trimmed = String(name || '').trim()
   if (!trimmed) throw new Error('Gruppenname erforderlich')
 
-  const { data, error } = await supabase.rpc('rename_family_group', {
+  const { data, error } = await supabase.rpc('update_family_group', {
     p_group_id: groupId,
     p_name: trimmed,
+    p_icon: icon || null,
   })
   if (error) throw new Error(formatGroupError(error))
   return data
 }
+
+export const renameGroup = (groupId, name) => updateGroup(groupId, { name })
 
 /** Gruppe löschen (nur Owner/Oberadmin via RPC) */
 export async function deleteGroup(groupId) {

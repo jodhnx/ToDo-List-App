@@ -6,7 +6,7 @@ import { useTodosContext } from '../context/TodosContext'
 import { useInstallPrompt } from '../hooks/useInstallPrompt'
 import { useProfile } from '../hooks/useProfile'
 import { getSettings, saveSettings, getAiApiKey, setAiApiKey } from '../lib/settings'
-import { APP_BASE_VERSION, APP_VERSION } from '../lib/appVersion'
+import { APP_BASE_VERSION, APP_VERSION, APP_VERSION_RULES } from '../lib/appVersion'
 import {
   requestNotificationPermission,
   getNotificationPermission,
@@ -24,7 +24,7 @@ const settingTabs = [
   { id: 'notifications', label: 'Benachrichtigungen' },
   { id: 'ai', label: 'KI' },
   { id: 'security', label: 'Sicherheit' },
-  { id: 'creator', label: 'Creator' },
+  { id: 'creator', label: 'Über diese App' },
 ]
 
 export default function SettingsPage() {
@@ -284,7 +284,12 @@ export default function SettingsPage() {
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <p className="text-sm font-medium text-primary">App-Version</p>
                 <p className="mt-1 text-2xl font-bold text-indigo-300">v{APP_VERSION}</p>
-                <p className="mt-1 text-xs text-muted">{APP_BASE_VERSION} → v{APP_VERSION}</p>
+                <p className="mt-1 text-xs text-muted">Startwert: v{APP_BASE_VERSION}</p>
+                <ul className="mt-3 space-y-1 text-xs text-muted">
+                  {APP_VERSION_RULES.map((rule) => (
+                    <li key={rule}>{rule}</li>
+                  ))}
+                </ul>
               </div>
             </div>
           </Section>

@@ -26,6 +26,12 @@ export default function GroupCard({ group, memberCount = 0 }) {
         <p className="text-xs text-muted">
           {memberCount || '—'} Mitglieder · {new Date(group.created_at).toLocaleDateString('de-DE')}
         </p>
+        {group.owner?.username && (
+          <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-violet-300">
+            <Crown className="h-3 w-3" />
+            Erstellt von @{group.owner.username}
+          </p>
+        )}
       </div>
       <ChevronRight className="h-5 w-5 shrink-0 text-muted" />
     </Link>

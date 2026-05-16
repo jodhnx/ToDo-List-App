@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
-import { ArrowLeft, UserPlus, Filter, Settings, Trash2 } from 'lucide-react'
+import { ArrowLeft, UserPlus, Filter, Settings, Trash2, Crown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useGroups } from '../context/GroupsContext'
 import { useToast } from '../context/ToastContext'
-import { getGroupIcon } from '../lib/groupConstants'
+import { getGroupIcon, GROUP_ICONS } from '../lib/groupConstants'
 import { resolveDisplayRole } from '../lib/groupRoles'
 import GroupStats from '../components/groups/GroupStats'
 import MemberList from '../components/groups/MemberList'
@@ -21,6 +21,7 @@ import Card from '../components/ui/Card'
 import Tabs from '../components/ui/Tabs'
 import Modal from '../components/ui/Modal'
 import Input from '../components/ui/Input'
+import Select from '../components/ui/Select'
 
 const filterTabs = [
   { id: 'all', label: 'Alle' },
@@ -49,7 +50,7 @@ export default function GroupDetailPage() {
     createShoppingItem,
     updateShoppingItem,
     deleteShoppingItem,
-    renameGroup,
+    updateGroup,
     deleteGroup,
     refreshGroups,
   } = useGroups()
@@ -73,6 +74,7 @@ export default function GroupDetailPage() {
   const [deleteTaskTarget, setDeleteTaskTarget] = useState(null)
   const [manageOpen, setManageOpen] = useState(false)
   const [groupName, setGroupName] = useState('')
+  const [groupIcon, setGroupIcon] = useState('home')
   const [deleteGroupOpen, setDeleteGroupOpen] = useState(false)
   const [savingGroup, setSavingGroup] = useState(false)
 
@@ -81,13 +83,16 @@ export default function GroupDetailPage() {
     [members, user?.id],
   )
   const myRole = myMembership
-    ? resolveDisplayRole(myMembership, group?.created_by)
-    : resolveDisplayRole({ role: group?.my_role, user_id: user?.id }, group?.created_by)
+    ? resolveDisplayRole(myMembership, group?.owner_id || group?.created_by)
+    : resolveDisplayRole({ role: group?.my_role, user_id: user?.id }, group?.owner_id || group?.created_by)
   const canManageGroup = myRole === 'owner'
+  const ownerMember = members.find((m) => m.user_id === (group?.owner_id || group?.created_by))
+  const ownerUsername = ownerMember?.profile?.username || group?.owner?.username
 
   useEffect(() => {
     setGroupName(group?.name || '')
-  }, [group?.name])
+    setGroupIcon(group?.icon || 'home')
+  }, [group?.name, group?.icon])
 
   const load = useCallback(async () => {
     if (!groupId) return
@@ -276,12 +281,12 @@ export default function GroupDetailPage() {
     if (!canManageGroup || savingGroup) return
     setSavingGroup(true)
     try {
-      await renameGroup(groupId, groupName)
+      await updateGroup(groupId, { name: groupName, icon: groupIcon })
       await refreshGroups()
-      toast('Gruppenname gespeichert', 'success')
+      toast('Gruppe gespeichert', 'success')
       setManageOpen(false)
     } catch (e) {
-      toast(e.message || 'Gruppe konnte nicht umbenannt werden', 'error')
+      toast(e.message || 'Gruppe konnte nicht gespeichert werden', 'error')
     } finally {
       setSavingGroup(false)
     }
@@ -325,6 +330,15 @@ export default function GroupDetailPage() {
             {members.length} Mitglieder · Dein Rang:{' '}
             {myRole === 'owner' ? 'Oberadmin' : myRole === 'admin' ? 'Admin' : 'Mitglied'}
           </p>
+          {ownerUsername && (
+            <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">
+              Erstellt von @{ownerUsername}
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-500/15 px-1.5 py-0.5 font-medium">
+                <Crown className="h-3 w-3" />
+                Owner
+              </span>
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 gap-2">
           {canManageGroup && (
@@ -406,6 +420,7 @@ export default function GroupDetailPage() {
         <MemberList
           members={members}
           groupCreatedBy={group.created_by}
+          groupOwnerId={group.owner_id || group.created_by}
           currentUserId={user.id}
           myRole={myRole}
           onRemove={(m) => setRemoveTarget(m)}
@@ -450,8 +465,14 @@ export default function GroupDetailPage() {
             placeholder="Name der Gruppe"
             required
           />
+          <Select
+            label="Gruppenicon"
+            value={groupIcon}
+            onChange={(e) => setGroupIcon(e.target.value)}
+            options={GROUP_ICONS.map((icon) => ({ value: icon.value, label: icon.label }))}
+          />
           <Button type="submit" disabled={savingGroup || !groupName.trim()} className="w-full">
-            {savingGroup ? 'Speichern…' : 'Namen speichern'}
+            {savingGroup ? 'Speichern…' : 'Gruppe speichern'}
           </Button>
         </form>
 

@@ -31,6 +31,7 @@ function RoleBadge({ role }) {
 export default function MemberList({
   members,
   groupCreatedBy,
+  groupOwnerId,
   currentUserId,
   myRole,
   onRemove,
@@ -38,15 +39,16 @@ export default function MemberList({
 }) {
   const sorted = [...members].sort((a, b) => {
     const order = { owner: 0, admin: 1, member: 2 }
-    const ra = resolveDisplayRole(a, groupCreatedBy)
-    const rb = resolveDisplayRole(b, groupCreatedBy)
+    const ownerId = groupOwnerId || groupCreatedBy
+    const ra = resolveDisplayRole(a, ownerId)
+    const rb = resolveDisplayRole(b, ownerId)
     return (order[ra] ?? 9) - (order[rb] ?? 9)
   })
 
   return (
     <ul className="space-y-2">
       {sorted.map((m) => {
-        const role = resolveDisplayRole(m, groupCreatedBy)
+        const role = resolveDisplayRole(m, groupOwnerId || groupCreatedBy)
         const isSelf = m.user_id === currentUserId
         const showRemove = !isSelf && onRemove && canRemoveMember(myRole, role)
         const showRoleSelect = !isSelf && role !== 'owner' && onRoleChange && canSetRoles(myRole)
