@@ -137,13 +137,30 @@ export default function TodoForm({ initial, onSubmit, onCancel, submitting = fal
     }))
   }
 
-  const applyHouseholdTask = (task) => {
+  const applyHouseholdTask = async (task) => {
+    if (submitting) return
+    const payload = {
+      title: task.title,
+      description: '',
+      category: task.personalCategory,
+      priority: task.priority,
+      due_date: null,
+      due_time: null,
+      reminder_at: null,
+      pinned: false,
+    }
     setForm((f) => ({
       ...f,
       title: task.title,
       category: task.personalCategory,
       priority: task.priority,
     }))
+    await onSubmit(payload)
+  }
+
+  const handleHouseholdSelect = (e) => {
+    const task = HOUSEHOLD_TASK_SUGGESTIONS.find((item) => item.title === e.target.value)
+    if (task) applyHouseholdTask(task)
   }
 
   const handleSubmit = async (e) => {
@@ -179,19 +196,19 @@ export default function TodoForm({ initial, onSubmit, onCancel, submitting = fal
           </div>
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3">
             <p className="text-sm font-semibold text-emerald-100">Schnelle Haushalts-Aufgaben</p>
-            <p className="mt-1 text-xs text-emerald-100/75">Antippen statt tippen.</p>
-            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <p className="mt-1 text-xs text-emerald-100/75">Wähle eine Aufgabe aus, sie wird automatisch übernommen.</p>
+            <select
+              value=""
+              onChange={handleHouseholdSelect}
+              className="input-field mt-3 min-h-12 bg-black/10 text-base font-semibold"
+            >
+              <option value="">Schnell-Aufgabe auswählen...</option>
               {HOUSEHOLD_TASK_SUGGESTIONS.map((task) => (
-                <button
-                  key={task.title}
-                  type="button"
-                  onClick={() => applyHouseholdTask(task)}
-                  className="min-h-11 rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-left text-sm font-semibold text-primary hover:bg-white/15"
-                >
-                  + {task.title}
-                </button>
+                <option key={task.title} value={task.title}>
+                  {task.title}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
         </div>
       )}

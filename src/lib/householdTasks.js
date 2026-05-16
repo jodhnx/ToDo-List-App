@@ -12,6 +12,7 @@ export const HOUSEHOLD_TASK_SUGGESTIONS = [
   { title: 'Bad reinigen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'mittel' },
   { title: 'Kühlschrank reinigen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'niedrig' },
   { title: 'Katzenklo reinigen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'mittel' },
+  { title: 'Gassi gehen', personalCategory: 'privat', groupCategory: 'family', priority: 'mittel' },
   { title: 'Boden wischen', personalCategory: 'privat', groupCategory: 'cleaning', priority: 'mittel' },
   { title: 'Post holen', personalCategory: 'privat', groupCategory: 'family', priority: 'niedrig' },
 ]

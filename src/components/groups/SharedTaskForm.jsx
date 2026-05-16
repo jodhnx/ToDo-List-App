@@ -85,13 +85,41 @@ export default function SharedTaskForm({ members, onSubmit, submitting }) {
     setForm((f) => ({ ...f, [field]: f[field] ? `${f[field].trim()} ${clean}` : clean }))
   }
 
-  const applyHouseholdTask = (task) => {
+  const submitTaskPayload = async (payload) => {
+    await onSubmit(payload)
+    setForm(empty)
+    setAssignError('')
+  }
+
+  const applyHouseholdTask = async (task) => {
+    if (submitting) return
+    const payload = {
+      title: task.title,
+      description: '',
+      category: task.groupCategory,
+      priority: task.priority,
+      due_date: null,
+      due_time: null,
+      notify_enabled: false,
+      reminder_at: null,
+      reminder_repeat: false,
+      reminder_early: true,
+      reminder_sound: 'standard',
+      assignee_id: null,
+      status: 'open',
+    }
     setForm((f) => ({
       ...f,
       title: task.title,
       category: task.groupCategory,
       priority: task.priority,
     }))
+    await submitTaskPayload(payload)
+  }
+
+  const handleHouseholdSelect = (e) => {
+    const task = HOUSEHOLD_TASK_SUGGESTIONS.find((item) => item.title === e.target.value)
+    if (task) applyHouseholdTask(task)
   }
 
   const handleSubmit = async (e) => {
@@ -109,7 +137,7 @@ export default function SharedTaskForm({ members, onSubmit, submitting }) {
       assignee_id = member.user_id
     }
 
-    await onSubmit({
+    await submitTaskPayload({
       title: form.title.trim(),
       description: form.description,
       category: form.category,
@@ -124,27 +152,25 @@ export default function SharedTaskForm({ members, onSubmit, submitting }) {
       assignee_id,
       status: 'open',
     })
-    setForm(empty)
-    setAssignError('')
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3">
         <p className="text-sm font-semibold text-emerald-100">Schnelle Familien-Aufgaben</p>
-        <p className="mt-1 text-xs text-emerald-100/75">Aufgabe antippen und bei Bedarf einem Mitglied zuweisen.</p>
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <p className="mt-1 text-xs text-emerald-100/75">Aufgabe auswählen und bei Bedarf einem Mitglied zuweisen.</p>
+        <select
+          value=""
+          onChange={handleHouseholdSelect}
+          className="input-field mt-3 min-h-12 bg-black/10 text-base font-semibold"
+        >
+          <option value="">Schnell-Aufgabe auswählen...</option>
           {HOUSEHOLD_TASK_SUGGESTIONS.map((task) => (
-            <button
-              key={task.title}
-              type="button"
-              onClick={() => applyHouseholdTask(task)}
-              className="min-h-11 rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-left text-sm font-semibold text-primary hover:bg-white/15"
-            >
-              + {task.title}
-            </button>
+            <option key={task.title} value={task.title}>
+              {task.title}
+            </option>
           ))}
-        </div>
+        </select>
       </div>
       <div className="space-y-2">
         <Input label="Titel" value={form.title} onChange={change('title')} required />

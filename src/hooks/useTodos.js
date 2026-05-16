@@ -76,6 +76,25 @@ function isNetworkError(err) {
   return browserIsOffline() || msg.includes('failed to fetch') || msg.includes('network') || msg.includes('timeout')
 }
 
+function formatTodoError(err) {
+  const msg = err?.message || String(err)
+  const code = err?.code || ''
+  if (code === '42P01' || /relation.*todos.*does not exist/i.test(msg)) {
+    return 'Aufgaben-Tabelle ist in Supabase nicht eingerichtet. Bitte die neueste Aufgaben-Migration ausführen.'
+  }
+  if (/column.*does not exist|schema cache/i.test(msg)) {
+    return 'Aufgaben-Tabelle ist in Supabase nicht aktuell. Bitte die neuesten Migrationen ausführen.'
+  }
+  if (code === '23514' || /check constraint/i.test(msg)) {
+    return 'Aufgabe enthält einen ungültigen Wert. Bitte Kategorie oder Priorität prüfen.'
+  }
+  if (code === '42501' || /row-level security/i.test(msg)) {
+    return 'Keine Berechtigung zum Speichern der Aufgabe. Bitte RLS-Migration prüfen und neu anmelden.'
+  }
+  if (/jwt|session|auth/i.test(msg)) return 'Sitzung abgelaufen - bitte neu anmelden.'
+  return msg
+}
+
 export function useTodos() {
   const { user } = useAuth()
   const [todos, setTodos] = useState([])
@@ -121,10 +140,10 @@ export function useTodos() {
         .insert({ ...slim, user_id: userId })
         .select()
         .single()
-      if (retry.error) throw retry.error
+      if (retry.error) throw new Error(formatTodoError(retry.error))
       return retry.data
     }
-    if (err) throw err
+    if (err) throw new Error(formatTodoError(err))
     return data
   }, [userId])
 
@@ -183,7 +202,7 @@ export function useTodos() {
     } catch (err) {
       console.warn('Supabase-Fehler, Fallback:', err)
       setTodos(localGetTodos(userId))
-      setError('Lokaler Cache aktiv. Konto-Sync wird erneut versucht, sobald Supabase erreichbar ist.')
+      setError(formatTodoError(err))
     } finally {
       setLoading(false)
     }
@@ -240,7 +259,10 @@ export function useTodos() {
         setTodosAndCache((prev) => [data, ...prev])
         return data
       } catch (err) {
-        if (!isNetworkError(err)) throw err
+        if (!isNetworkError(err)) {
+          console.error('Aufgabe konnte nicht in Supabase gespeichert werden:', err)
+          throw err
+        }
         const local = localCreateTodo(userId, { ...row, _pendingSync: true, _syncState: 'create' })
         localQueueTodoSync(userId, { type: 'create', todo: local })
         setTodosAndCache((prev) => [local, ...prev])
@@ -268,7 +290,10 @@ export function useTodos() {
         .select()
         .single()
       if (err) {
-        if (!isNetworkError(err)) throw err
+        if (!isNetworkError(err)) {
+          console.error('Aufgabe konnte nicht in Supabase aktualisiert werden:', err)
+          throw new Error(formatTodoError(err))
+        }
         const local = localUpdateTodo(userId, id, { ...updates, _pendingSync: true, _syncState: 'update' })
         localQueueTodoSync(userId, { type: 'update', id, updates })
         if (local) setTodosAndCache((prev) => prev.map((t) => (t.id === id ? local : t)))
@@ -290,7 +315,10 @@ export function useTodos() {
     if (canReachCloud) {
       const { error: err } = await supabase.from('todos').delete().eq('id', id).eq('user_id', userId)
       if (err) {
-        if (!isNetworkError(err)) throw err
+        if (!isNetworkError(err)) {
+          console.error('Aufgabe konnte nicht in Supabase gelöscht werden:', err)
+          throw new Error(formatTodoError(err))
+        }
         localQueueTodoSync(userId, { type: 'delete', id })
         localDeleteTodo(userId, id)
       }

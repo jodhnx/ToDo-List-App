@@ -205,7 +205,10 @@ export async function respondToInvite({ inviteId, userId, accept, groupName, inv
     .eq('invitee_id', userId)
     .select('*, group_id')
     .single()
-  if (error) throw error
+  if (error) {
+    console.error('Gruppenaufgabe konnte nicht in Supabase gespeichert werden:', error)
+    throw new Error(formatGroupError(error))
+  }
 
   if (accept) {
     await supabase.from('group_members').insert({
@@ -232,7 +235,10 @@ export async function fetchSharedTasks(groupId) {
     .select('*')
     .eq('group_id', groupId)
     .order('created_at', { ascending: false })
-  if (error) throw error
+  if (error) {
+    console.error('Gruppenaufgabe konnte nicht in Supabase aktualisiert werden:', error)
+    throw new Error(formatGroupError(error))
+  }
 
   const tasks = data || []
   const ids = [...new Set(tasks.flatMap((t) => [t.creator_id, t.assignee_id].filter(Boolean)))]
@@ -315,7 +321,10 @@ export async function updateSharedTask(id, updates, meta = {}) {
 
 export async function deleteSharedTask(id) {
   const { error } = await supabase.from('shared_tasks').delete().eq('id', id)
-  if (error) throw error
+  if (error) {
+    console.error('Gruppenaufgabe konnte nicht in Supabase gelöscht werden:', error)
+    throw new Error(formatGroupError(error))
+  }
 }
 
 export async function fetchGroupShoppingItems(groupId) {
