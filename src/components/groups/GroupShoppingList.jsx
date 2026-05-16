@@ -9,6 +9,7 @@ import Modal from '../ui/Modal'
 import Select from '../ui/Select'
 import SpeechInputButton from '../ui/SpeechInputButton'
 import { useToast } from '../../context/ToastContext'
+import { useShoppingFavorites } from '../../hooks/useShoppingFavorites'
 import {
   DEFAULT_SHOPPING_CATEGORY,
   getShoppingCategory,
@@ -29,6 +30,7 @@ function appendText(current, next) {
 
 export default function GroupShoppingList({ items, onCreate, onToggle, onDelete, submitting }) {
   const { toast } = useToast()
+  const { favorites, groupedFavorites, recordFavoriteUse } = useShoppingFavorites()
   const [form, setForm] = useState(emptyForm)
   const [search, setSearch] = useState('')
   const [showChecked, setShowChecked] = useState(true)
@@ -117,6 +119,19 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
 
   const handleSuggestion = async (name) => {
     await submit({ name, category: form.category, quantity: form.quantity || '1', note: '' })
+  }
+
+  const handleFavoriteSelect = async (e) => {
+    const favorite = favorites.find((item) => item.id === e.target.value)
+    if (!favorite) return
+    e.target.value = ''
+    const ok = await submit({
+      name: favorite.name,
+      category: favorite.category,
+      quantity: favorite.default_quantity || '1',
+      note: '',
+    })
+    if (ok !== false) await recordFavoriteUse(favorite)
   }
 
   return (
@@ -288,6 +303,32 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
               options={shoppingCategoryOptions}
             />
           </div>
+          {favorites.length > 0 && (
+            <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3">
+              <label className="block text-sm font-semibold text-amber-100">
+                Favoriten
+                <select
+                  defaultValue=""
+                  onChange={handleFavoriteSelect}
+                  className="input-field mt-2 min-h-12 bg-black/10 text-base"
+                >
+                  <option value="">Favorit aus deinem Konto hinzufügen...</option>
+                  {Object.entries(groupedFavorites).map(([favoriteCategory, favoriteItems]) => (
+                    <optgroup key={favoriteCategory} label={favoriteCategory}>
+                      {favoriteItems.map((favorite) => (
+                        <option key={favorite.id} value={favorite.id}>
+                          {favorite.name} x{favorite.default_quantity || '1'}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </label>
+              <p className="mt-2 text-xs text-amber-100/75">
+                Deine gespeicherten Favoriten können direkt auf die Familienliste übernommen werden.
+              </p>
+            </div>
+          )}
           <div className={`rounded-2xl border p-3 ${activeCategory.color}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-base font-semibold">Typische Produkte: {activeCategory.label}</p>

@@ -28,6 +28,7 @@ function appendText(current, next) {
 export default function ShoppingPage() {
   const { items, loading, syncing, error, createItem, deleteItem, toggleItem, deleteChecked } = useShoppingList()
   const {
+    favorites,
     groupedFavorites,
     error: favoritesError,
     isFavorite,
@@ -133,6 +134,13 @@ export default function ShoppingPage() {
     await recordFavoriteUse(favorite)
   }
 
+  const handleFavoriteSelect = async (e) => {
+    const favorite = favorites.find((item) => item.id === e.target.value)
+    if (!favorite) return
+    e.target.value = ''
+    await handleFavoriteAdd(favorite)
+  }
+
   const toggleFavorite = async (item) => {
     try {
       if (isFavorite(item.name, item.category)) {
@@ -169,20 +177,43 @@ export default function ShoppingPage() {
           </p>
           {error && <p className="mt-1 text-xs text-amber-300">{error}</p>}
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setModalOpen(true)} className="hidden gap-2 sm:inline-flex">
-            <Plus className="h-4 w-4" />
-            Produkt hinzufügen
-          </Button>
-          <Button
-            variant="secondary"
-            disabled={!stats.checked}
-            onClick={() => setConfirmClear(true)}
-            className="gap-2"
-          >
-            <Trash2 className="h-4 w-4" />
-            Erledigte löschen
-          </Button>
+        <div className="flex flex-col gap-2 sm:items-end">
+          {favorites.length > 0 && (
+            <label className="w-full min-w-52 text-xs font-medium text-muted sm:w-60">
+              Favoriten
+              <select
+                defaultValue=""
+                onChange={handleFavoriteSelect}
+                className="input-field mt-1 min-h-11 text-sm"
+              >
+                <option value="">Favorit hinzufügen...</option>
+                {Object.entries(groupedFavorites).map(([favoriteCategory, favoriteItems]) => (
+                  <optgroup key={favoriteCategory} label={favoriteCategory}>
+                    {favoriteItems.map((favorite) => (
+                      <option key={favorite.id} value={favorite.id}>
+                        {favorite.name} x{favorite.default_quantity || '1'}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+          )}
+          <div className="flex gap-2">
+            <Button onClick={() => setModalOpen(true)} className="hidden gap-2 sm:inline-flex">
+              <Plus className="h-4 w-4" />
+              Produkt hinzufügen
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={!stats.checked}
+              onClick={() => setConfirmClear(true)}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Erledigte löschen
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -243,37 +274,6 @@ export default function ShoppingPage() {
       </div>
 
       {favoritesError && <p className="text-xs text-amber-300">{favoritesError}</p>}
-      {Object.keys(groupedFavorites).length > 0 && (
-        <section className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3">
-          <div className="flex items-center gap-2 text-amber-100">
-            <Star className="h-5 w-5 fill-amber-300 text-amber-300" />
-            <h2 className="text-lg font-bold">Favoriten</h2>
-          </div>
-          <p className="mt-1 text-sm text-amber-100/80">Häufige Produkte schnell wieder hinzufügen.</p>
-          <div className="mt-3 space-y-3">
-            {Object.entries(groupedFavorites).map(([favoriteCategory, favoriteItems]) => (
-              <div key={favoriteCategory} className="space-y-2">
-                <p className="text-sm font-semibold text-amber-100/90">{favoriteCategory}</p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {favoriteItems.map((favorite) => (
-                    <button
-                      key={favorite.id}
-                      type="button"
-                      onClick={() => handleFavoriteAdd(favorite)}
-                      className="flex min-h-12 items-center justify-between gap-2 rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-left font-semibold text-primary hover:bg-white/15"
-                    >
-                      <span>+ {favorite.name}</span>
-                      <span className="rounded-full bg-white/15 px-2 py-0.5 text-sm">
-                        x{favorite.default_quantity || '1'}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {loading ? (
         <div className="flex justify-center py-16">
