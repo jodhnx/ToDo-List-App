@@ -7,6 +7,7 @@ import Fab from '../ui/Fab'
 import Input from '../ui/Input'
 import Modal from '../ui/Modal'
 import Select from '../ui/Select'
+import SpeechInputButton from '../ui/SpeechInputButton'
 
 const CATEGORIES = [
   'Obst & Gemüse',
@@ -50,6 +51,12 @@ function inferCategory(name) {
 
 function emptyForm() {
   return { name: '', quantity: '1', category: 'Sonstiges', note: '' }
+}
+
+function appendText(current, next) {
+  const clean = String(next || '').trim()
+  if (!clean) return current
+  return current ? `${current.trim()} ${clean}` : clean
 }
 
 export default function GroupShoppingList({ items, onCreate, onToggle, onDelete, submitting }) {
@@ -105,6 +112,21 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
         ? { category: inferCategory(value) }
         : {}),
     }))
+  }
+
+  const setSpeechField = (field, text) => {
+    const clean = String(text || '').trim()
+    if (!clean) return
+    setForm((current) => {
+      const value = appendText(current[field], clean)
+      return {
+        ...current,
+        [field]: value,
+        ...(field === 'name' && current.category === 'Sonstiges'
+          ? { category: inferCategory(value) }
+          : {}),
+      }
+    })
   }
 
   const resetAndClose = () => {
@@ -286,6 +308,7 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
             autoFocus
             required
           />
+          <SpeechInputButton label="Produkt diktieren" onTranscript={(text) => setSpeechField('name', text)} />
           <div className="grid grid-cols-[1fr_1.4fr] gap-3">
             <Input label="Menge" value={form.quantity} onChange={change('quantity')} placeholder="1" />
             <Select label="Kategorie" value={form.category} onChange={change('category')} options={categoryOptions} />
@@ -296,6 +319,7 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
             onChange={change('note')}
             placeholder="Marke, Laden, Angebot…"
           />
+          <SpeechInputButton label="Notiz diktieren" onTranscript={(text) => setSpeechField('note', text)} />
           <div>
             <p className="mb-2 text-xs font-medium text-muted">Schnell hinzufügen</p>
             <div className="flex flex-wrap gap-2">

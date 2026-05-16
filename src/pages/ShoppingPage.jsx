@@ -9,6 +9,7 @@ import Select from '../components/ui/Select'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Modal from '../components/ui/Modal'
 import Fab from '../components/ui/Fab'
+import SpeechInputButton from '../components/ui/SpeechInputButton'
 
 const CATEGORIES = [
   'Obst & Gemüse',
@@ -48,6 +49,12 @@ const categoryOptions = CATEGORIES.map((category) => ({ value: category, label: 
 function inferCategory(name) {
   const match = PRODUCT_IDEAS.find(([product]) => product.toLowerCase() === name.trim().toLowerCase())
   return match?.[1] || 'Sonstiges'
+}
+
+function appendText(current, next) {
+  const clean = String(next || '').trim()
+  if (!clean) return current
+  return current ? `${current.trim()} ${clean}` : clean
 }
 
 export default function ShoppingPage() {
@@ -329,6 +336,10 @@ export default function ShoppingPage() {
             autoFocus
             required
           />
+          <SpeechInputButton
+            label="Produkt diktieren"
+            onTranscript={(text) => handleNameChange(appendText(name, text))}
+          />
           <div className="grid grid-cols-[1fr_1.4fr] gap-3">
             <Input label="Menge" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="1" />
             <Select
@@ -343,6 +354,10 @@ export default function ShoppingPage() {
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Marke, Laden, Angebot…"
+          />
+          <SpeechInputButton
+            label="Notiz diktieren"
+            onTranscript={(text) => setNote((current) => appendText(current, text))}
           />
           <div>
             <p className="mb-2 text-xs font-medium text-muted">Schnell hinzufügen</p>

@@ -4,6 +4,7 @@ import Select from '../ui/Select'
 import Button from '../ui/Button'
 import { GROUP_CATEGORIES, GROUP_PRIORITIES } from '../../lib/groupConstants'
 import { resolveMemberByUsername } from '../../lib/groupApi'
+import SpeechInputButton from '../ui/SpeechInputButton'
 
 const empty = {
   title: '',
@@ -24,6 +25,12 @@ export default function SharedTaskForm({ members, onSubmit, submitting }) {
     const v = e.target.type === 'checkbox' ? e.target.checked : e.target.value
     setForm((f) => ({ ...f, [field]: v }))
     if (field === 'assignee_username') setAssignError('')
+  }
+
+  const appendField = (field, text) => {
+    const clean = String(text || '').trim()
+    if (!clean) return
+    setForm((f) => ({ ...f, [field]: f[field] ? `${f[field].trim()} ${clean}` : clean }))
   }
 
   const handleSubmit = async (e) => {
@@ -57,14 +64,23 @@ export default function SharedTaskForm({ members, onSubmit, submitting }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-      <Input label="Titel" value={form.title} onChange={change('title')} required />
-      <textarea
-        value={form.description}
-        onChange={change('description')}
-        rows={2}
-        placeholder="Beschreibung (optional)"
-        className="input-field resize-none"
-      />
+      <div className="space-y-2">
+        <Input label="Titel" value={form.title} onChange={change('title')} required />
+        <SpeechInputButton label="Titel diktieren" onTranscript={(text) => appendField('title', text)} />
+      </div>
+      <div className="space-y-2">
+        <textarea
+          value={form.description}
+          onChange={change('description')}
+          rows={2}
+          placeholder="Beschreibung (optional)"
+          className="input-field resize-none"
+        />
+        <SpeechInputButton
+          label="Beschreibung diktieren"
+          onTranscript={(text) => appendField('description', text)}
+        />
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Select
           label="Kategorie"

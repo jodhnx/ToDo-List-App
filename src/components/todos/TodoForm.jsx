@@ -7,6 +7,7 @@ import AITaskTools from '../ai/AITaskTools'
 import { suggestTaskMeta } from '../../lib/ai'
 import { requestNotificationPermission } from '../../lib/notifications'
 import { saveSettings } from '../../lib/settings'
+import SpeechInputButton from '../ui/SpeechInputButton'
 
 const emptyForm = {
   title: '',
@@ -65,6 +66,12 @@ function buildReminderAt(form) {
   const date = new Date(`${form.reminder_date}T${form.reminder_time}`)
   if (Number.isNaN(date.getTime())) return null
   return date.toISOString()
+}
+
+function appendText(current, next) {
+  const clean = String(next || '').trim()
+  if (!clean) return current
+  return current ? `${current.trim()} ${clean}` : clean
 }
 
 export default function TodoForm({ initial, onSubmit, onCancel, submitting = false }) {
@@ -171,6 +178,10 @@ export default function TodoForm({ initial, onSubmit, onCancel, submitting = fal
         autoComplete="off"
         enterKeyHint="next"
       />
+      <SpeechInputButton
+        label="Titel diktieren"
+        onTranscript={(text) => setForm((f) => ({ ...f, title: appendText(f.title, text) }))}
+      />
 
       <AITaskTools
         title={form.title}
@@ -187,6 +198,10 @@ export default function TodoForm({ initial, onSubmit, onCancel, submitting = fal
           rows={3}
           placeholder="Optional…"
           className="input-field resize-none"
+        />
+        <SpeechInputButton
+          label="Beschreibung diktieren"
+          onTranscript={(text) => setForm((f) => ({ ...f, description: appendText(f.description, text) }))}
         />
       </div>
 
