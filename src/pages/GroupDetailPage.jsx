@@ -351,39 +351,43 @@ export default function GroupDetailPage() {
   }
 
   return (
-    <div className="space-y-4 pb-4">
-      <div className="flex items-start gap-3">
-        <Link to="/app/family" className="rounded-lg p-2 text-muted hover:bg-white/10">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        {group.avatar_url ? (
-          <img src={group.avatar_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
-        ) : (
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-300">
-            <Icon className="h-6 w-6" />
+    <div className="space-y-5 pb-4">
+      <Card className="p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <div className="flex items-start gap-3">
+            <Link to="/app/family" className="rounded-xl p-2 text-muted hover:bg-[var(--theme-accentSoft)]">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            {group.avatar_url ? (
+              <img src={group.avatar_url} alt="" className="h-14 w-14 rounded-2xl object-cover shadow-sm" />
+            ) : (
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--theme-accentSoft)] text-[var(--theme-accent)]">
+                <Icon className="h-7 w-7" />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-2xl font-bold text-primary sm:text-3xl">{group.name}</h1>
+              <p className="mt-1 text-sm text-muted">
+                {members.length} Mitglieder · Dein Rang:{' '}
+                {myRole === 'owner' ? 'Oberadmin' : myRole === 'admin' ? 'Admin' : 'Mitglied'}
+              </p>
+              {group.description && <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">{group.description}</p>}
+            </div>
           </div>
-        )}
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-primary">{group.name}</h1>
-          <p className="text-sm text-muted">
-            {members.length} Mitglieder · Dein Rang:{' '}
-            {myRole === 'owner' ? 'Oberadmin' : myRole === 'admin' ? 'Admin' : 'Mitglied'}
-          </p>
-          {group.description && <p className="mt-2 max-w-2xl text-sm text-muted">{group.description}</p>}
-        </div>
-        <div className="flex shrink-0 gap-2">
-          {canManageGroup && (
-            <Button size="sm" variant="secondary" onClick={() => setManageOpen(true)} className="gap-1">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Verwalten</span>
+          <div className="flex shrink-0 gap-2 sm:ml-auto">
+            {canManageGroup && (
+              <Button size="sm" variant="secondary" onClick={() => setManageOpen(true)} className="flex-1 gap-1 sm:flex-none">
+                <Settings className="h-4 w-4" />
+                <span>Verwalten</span>
+              </Button>
+            )}
+            <Button size="sm" variant="secondary" onClick={() => setInviteOpen(true)} className="flex-1 gap-1 sm:flex-none">
+              <UserPlus className="h-4 w-4" />
+              Einladen
             </Button>
-          )}
-          <Button size="sm" variant="secondary" onClick={() => setInviteOpen(true)} className="gap-1">
-            <UserPlus className="h-4 w-4" />
-            Einladen
-          </Button>
+          </div>
         </div>
-      </div>
+      </Card>
 
       <GroupStats tasks={tasks} members={members} />
 
@@ -400,7 +404,8 @@ export default function GroupDetailPage() {
 
       {tab === 'tasks' && (
         <>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-card)] p-3 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
               <Filter className="h-4 w-4 shrink-0 text-muted" />
               {filterTabs.map((f) => (
@@ -408,8 +413,8 @@ export default function GroupDetailPage() {
                   key={f.id}
                   type="button"
                   onClick={() => setFilter(f.id)}
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
-                    filter === f.id ? 'bg-indigo-500/25 text-indigo-300' : 'bg-white/5 text-muted'
+                  className={`min-h-10 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
+                    filter === f.id ? 'bg-[var(--theme-accentSoft)] text-[var(--theme-accent)]' : 'bg-[var(--theme-input)] text-muted'
                   }`}
                 >
                   {f.label}
@@ -420,6 +425,7 @@ export default function GroupDetailPage() {
               <Plus className="h-4 w-4" />
               Aufgabe
             </Button>
+            </div>
           </div>
           <ul className="space-y-3">
             <AnimatePresence mode="popLayout">

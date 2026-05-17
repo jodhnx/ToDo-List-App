@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Bell, Calendar, MessageCircle, Trash2, User } from 'lucide-react'
 import { getGroupCategory } from '../../lib/groupConstants'
 import { formatDueLabel } from '../../lib/dateTime'
@@ -17,7 +16,6 @@ export default function SharedTaskItem({
   fetchComments,
   addComment,
 }) {
-  const [commentsOpen, setCommentsOpen] = useState(false)
   const cat = getGroupCategory(task.category)
   const CatIcon = cat.icon
   const isMine = task.assignee_id === currentUserId
@@ -34,16 +32,16 @@ export default function SharedTaskItem({
   return (
     <motion.li
       layout
-      className={`rounded-xl border p-4 transition ${
-        isMine ? 'border-indigo-500/40 bg-indigo-500/5' : 'border-white/10 bg-white/[0.03]'
+      className={`rounded-2xl border p-4 shadow-sm transition sm:p-5 ${
+        isMine ? 'border-[var(--theme-accent)] bg-[var(--theme-accentSoft)]' : 'border-[var(--theme-border)] bg-[var(--theme-card)]'
       } ${task.status === 'completed' ? 'opacity-60' : ''}`}
     >
       <div className="flex gap-3">
         <button
           type="button"
           onClick={() => onToggle(task)}
-          className={`mt-1 h-5 w-5 shrink-0 rounded-full border-2 ${
-            task.status === 'completed' ? 'border-indigo-400 bg-indigo-400' : 'border-zinc-500'
+          className={`mt-1 h-7 w-7 shrink-0 rounded-full border-2 transition ${
+            task.status === 'completed' ? 'border-[var(--theme-accent)] bg-[var(--theme-accent)]' : 'border-[var(--theme-border)] bg-[var(--theme-input)]'
           }`}
           aria-label="Erledigen"
         />
@@ -52,7 +50,7 @@ export default function SharedTaskItem({
             {task.title}
           </p>
           {task.description && <p className="mt-1 text-sm text-muted line-clamp-2">{task.description}</p>}
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${cat.color}`}>
               <CatIcon className="h-3 w-3" />
               {cat.label}
@@ -72,7 +70,7 @@ export default function SharedTaskItem({
               </span>
             )}
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted">
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
             <span className="flex items-center gap-1">
               <User className="h-3 w-3" />
               von @{task.creator?.username}
@@ -86,7 +84,7 @@ export default function SharedTaskItem({
           </div>
           {canAssign && task.status === 'open' && (
             <select
-              className="mt-2 w-full max-w-xs rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-primary"
+              className="mt-3 w-full max-w-xs rounded-xl border border-[var(--theme-border)] bg-[var(--theme-input)] px-3 py-2 text-sm text-primary"
               value={task.assignee_id || ''}
               onChange={(e) => onAssign(task, e.target.value || null)}
             >
@@ -100,14 +98,9 @@ export default function SharedTaskItem({
           )}
         </div>
         <div className="flex shrink-0 flex-col gap-1">
-          <button
-            type="button"
-            onClick={() => setCommentsOpen(!commentsOpen)}
-            className="rounded-lg p-2 text-muted hover:bg-white/10"
-            aria-label="Kommentare öffnen"
-          >
+          <div className="rounded-lg p-2 text-muted" aria-label="Kommentare">
             <MessageCircle className="h-4 w-4" />
-          </button>
+          </div>
           {onDelete && (
             <button
               type="button"
@@ -120,26 +113,15 @@ export default function SharedTaskItem({
           )}
         </div>
       </div>
-      <AnimatePresence>
-        {commentsOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
-          >
-            <TaskComments
-              taskId={task.id}
-              taskTitle={task.title}
-              creatorId={task.creator_id}
-              assigneeId={task.assignee_id}
-              currentUserId={currentUserId}
-              fetchComments={fetchComments}
-              addComment={addComment}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <TaskComments
+        taskId={task.id}
+        taskTitle={task.title}
+        creatorId={task.creator_id}
+        assigneeId={task.assignee_id}
+        currentUserId={currentUserId}
+        fetchComments={fetchComments}
+        addComment={addComment}
+      />
     </motion.li>
   )
 }

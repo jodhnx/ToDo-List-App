@@ -40,7 +40,7 @@ export default function Modal({ open, onClose, title, children }) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex flex-col bg-[#121214] touch-none"
+      className="fixed inset-0 z-[100] flex flex-col bg-[var(--theme-surface)] touch-none"
       role="presentation"
       onClick={onClose}
     >
@@ -48,17 +48,17 @@ export default function Modal({ open, onClose, title, children }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="modal-panel flex h-full min-h-0 w-full flex-col sm:mx-auto sm:my-auto sm:h-auto sm:max-h-[90dvh] sm:max-w-lg sm:rounded-2xl sm:border sm:border-white/10 sm:shadow-2xl"
+        className="modal-panel flex h-full min-h-0 w-full flex-col bg-[var(--theme-card)] text-primary sm:mx-auto sm:my-auto sm:h-auto sm:max-h-[90dvh] sm:max-w-lg sm:rounded-2xl sm:border sm:border-[var(--theme-border)] sm:shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-4 pt-[max(1rem,env(safe-area-inset-top))]">
-          <h2 id="modal-title" className="text-lg font-semibold text-zinc-50">
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--theme-border)] px-4 py-4 pt-[max(1rem,env(safe-area-inset-top))]">
+          <h2 id="modal-title" className="text-lg font-semibold text-primary">
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-zinc-400 hover:bg-white/10"
+            className="rounded-lg p-2 text-muted hover:bg-[var(--theme-accentSoft)] hover:text-primary"
             aria-label="Schließen"
           >
             <X className="h-5 w-5" />

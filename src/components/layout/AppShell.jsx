@@ -32,6 +32,7 @@ function FamilyNavBadge() {
 function AppShellInner() {
   const { displayName, isOnline } = useAuth()
   const { todos, syncing } = useTodosContext()
+  const { groups } = useGroups()
   const { theme } = useTheme()
   const [simpleMode, setSimpleMode] = useState(() => getSettings().simpleMode)
   useNotifications(todos)
@@ -46,7 +47,7 @@ function AppShellInner() {
 
   return (
     <div className={`min-h-screen gradient-mesh transition-colors duration-300 ${largeMode ? 'simple-mode' : ''}`}>
-      <Navbar />
+      <Navbar showQuickAccess groups={groups} />
 
       <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6">
         {/* Sidebar Desktop */}

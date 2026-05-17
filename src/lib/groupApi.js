@@ -388,20 +388,41 @@ export async function deleteGroupShoppingItem(id) {
 export async function fetchTaskComments(taskId) {
   const { data, error } = await supabase
     .from('task_comments')
-    .select('*, profiles(id, username, display_name, avatar_url)')
+    .select('id, task_id, user_id, body, created_at')
     .eq('task_id', taskId)
     .order('created_at', { ascending: true })
-  if (error) throw error
-  return data || []
+  if (error) throw new Error(formatGroupError(error))
+
+  const comments = data || []
+  const userIds = [...new Set(comments.map((c) => c.user_id).filter(Boolean))]
+  if (!userIds.length) return comments
+
+  const { data: profiles, error: pErr } = await supabase
+    .from('profiles')
+    .select('id, username, display_name, avatar_url')
+    .in('id', userIds)
+  if (pErr) throw new Error(formatGroupError(pErr))
+
+  const profileMap = Object.fromEntries((profiles || []).map((profile) => [profile.id, profile]))
+  return comments.map((comment) => ({ ...comment, profile: profileMap[comment.user_id] || null }))
 }
 
 export async function addTaskComment({ taskId, userId, body, notifyUserId, taskTitle }) {
+  const cleanBody = String(body || '').trim()
+  if (!cleanBody) throw new Error('Bitte zuerst einen Kommentar schreiben')
+
   const { data, error } = await supabase
     .from('task_comments')
-    .insert({ task_id: taskId, user_id: userId, body: body.trim() })
-    .select('*, profiles(id, username, display_name)')
+    .insert({ task_id: taskId, user_id: userId, body: cleanBody })
+    .select('id, task_id, user_id, body, created_at')
     .single()
-  if (error) throw error
+  if (error) throw new Error(formatGroupError(error))
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, username, display_name, avatar_url')
+    .eq('id', userId)
+    .maybeSingle()
 
   if (notifyUserId && notifyUserId !== userId) {
     await createNotification({
@@ -412,7 +433,7 @@ export async function addTaskComment({ taskId, userId, body, notifyUserId, taskT
       payload: { task_id: taskId },
     })
   }
-  return data
+  return { ...data, profile: profile || null }
 }
 
 export async function fetchNotifications(userId) {

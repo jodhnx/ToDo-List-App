@@ -1,11 +1,11 @@
 import { Link, NavLink } from 'react-router-dom'
-import { CheckCircle2, LogOut, LayoutDashboard, ListTodo, Users, User } from 'lucide-react'
+import { CheckCircle2, LogOut, LayoutDashboard, ListTodo, Users } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import ThemeToggle from '../ui/ThemeToggle'
 import Button from '../ui/Button'
 import { motion } from 'framer-motion'
+import QuickAccessMenu from './QuickAccessMenu'
 
-export default function Navbar({ showAuth = false }) {
+export default function Navbar({ showAuth = false, showQuickAccess = false, groups = [] }) {
   const { user, signOut, displayName, isOnline } = useAuth()
 
   return (
@@ -65,16 +65,9 @@ export default function Navbar({ showAuth = false }) {
         )}
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <ThemeToggle />
           {user ? (
             <>
-              <Link
-                to="/app/profile"
-                className="hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted hover:bg-[var(--theme-accentSoft)] hover:text-primary sm:flex"
-              >
-                <User className="h-4 w-4" />
-                <span className="max-w-[100px] truncate">{displayName}</span>
-              </Link>
+              {showQuickAccess && <QuickAccessMenu displayName={displayName} groups={groups} />}
               <Button variant="ghost" size="sm" onClick={signOut}>
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline">Abmelden</span>

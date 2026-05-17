@@ -4,17 +4,17 @@ export default function Select({ label, options, className = '', id, ...props })
   return (
     <div className="space-y-1.5">
       {label && (
-        <label htmlFor={selectId} className="block text-sm font-medium text-zinc-400">
+        <label htmlFor={selectId} className="block text-sm font-medium text-muted">
           {label}
         </label>
       )}
       <select
         id={selectId}
-        className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 ${className}`}
+        className={`w-full rounded-xl border border-[var(--theme-border)] bg-[var(--theme-input)] px-4 py-2.5 text-sm text-primary outline-none transition focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accentSoft)] ${className}`}
         {...props}
       >
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value} className="bg-zinc-900">
+          <option key={opt.value} value={opt.value} className="bg-[var(--theme-surface)] text-primary">
             {opt.label}
           </option>
         ))}

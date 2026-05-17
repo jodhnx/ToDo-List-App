@@ -64,14 +64,9 @@ export function ThemeProvider({ children }) {
     [mode, user?.id],
   )
 
-  const toggleTheme = useCallback(() => {
-    const next = theme.mode === 'dark' ? 'modern-light' : 'modern-dark'
-    return setTheme(next)
-  }, [setTheme, theme.mode])
-
   const value = useMemo(
-    () => ({ theme, themeId, setTheme, saving, isDark: theme.mode === 'dark', toggleTheme }),
-    [setTheme, saving, theme, themeId, toggleTheme],
+    () => ({ theme, themeId, setTheme, saving }),
+    [setTheme, saving, theme, themeId],
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
