@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, Loader2, Plus, Search, ShoppingBasket, Star, Trash2, X } from 'lucide-react'
+import { CheckCircle2, Plus, Search, ShoppingBasket, Star, Trash2, X } from 'lucide-react'
+import { SkeletonTaskList } from '../components/ui/Skeleton'
 import { useShoppingList } from '../hooks/useShoppingList'
 import { useShoppingFavorites } from '../hooks/useShoppingFavorites'
 import { useToast } from '../context/ToastContext'
@@ -167,10 +168,10 @@ export default function ShoppingPage() {
 
   return (
     <div className="space-y-4 pb-24 lg:pb-4">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <header className="page-header flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm text-muted">Einkaufen ohne Zettelchaos</p>
-          <h1 className="text-2xl font-bold text-primary sm:text-3xl">Einkaufsliste</h1>
+          <h1>Einkaufsliste</h1>
           <p className="mt-1 text-sm text-muted">
             {loading ? 'Lädt…' : `${stats.open} offen · ${stats.checked} erledigt`}
             {syncing && ' · synchronisiert…'}
@@ -217,22 +218,22 @@ export default function ShoppingPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
-        <div className="rounded-xl bg-white/[0.04] px-3 py-2">
+      <div className="glass-card grid grid-cols-3 gap-2 p-2">
+        <div className="rounded-xl bg-[var(--theme-input)] px-3 py-3">
           <p className="flex items-center gap-1 text-[11px] text-muted">
             <Plus className="h-3.5 w-3.5 text-amber-300" />
             Noch einkaufen
           </p>
           <p className="mt-0.5 text-xl font-bold text-primary">{stats.open}</p>
         </div>
-        <div className="rounded-xl bg-white/[0.04] px-3 py-2">
+        <div className="rounded-xl bg-[var(--theme-input)] px-3 py-3">
           <p className="flex items-center gap-1 text-[11px] text-muted">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
             Im Wagen
           </p>
           <p className="mt-0.5 text-xl font-bold text-primary">{stats.checked}</p>
         </div>
-        <div className="rounded-xl bg-white/[0.04] px-3 py-2">
+        <div className="rounded-xl bg-[var(--theme-input)] px-3 py-3">
           <p className="flex items-center gap-1 text-[11px] text-muted">
             <ShoppingBasket className="h-3.5 w-3.5 text-indigo-300" />
             Gesamt
@@ -241,7 +242,7 @@ export default function ShoppingPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-surface/50 p-3 shadow-lg shadow-black/10">
+      <div className="glass-card p-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
@@ -261,7 +262,7 @@ export default function ShoppingPage() {
               </button>
             )}
           </div>
-          <label className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-muted">
+          <label className="flex min-h-11 items-center gap-2 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-input)] px-3 py-2 text-sm text-muted">
             <input
               type="checkbox"
               checked={showChecked}
@@ -276,9 +277,7 @@ export default function ShoppingPage() {
       {favoritesError && <p className="text-xs text-amber-300">{favoritesError}</p>}
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
-        </div>
+        <SkeletonTaskList count={4} />
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-white/15 px-4 py-16 text-center">
           <ShoppingBasket className="mx-auto mb-3 h-10 w-10 text-indigo-300/70" />

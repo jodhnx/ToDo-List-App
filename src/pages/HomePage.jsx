@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Loader2, Plus, SlidersHorizontal, ChevronDown } from 'lucide-react'
+import { Plus, SlidersHorizontal, ChevronDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTodosContext } from '../context/TodosContext'
 import { useToast } from '../context/ToastContext'
@@ -19,6 +19,7 @@ import TodoForm from '../components/todos/TodoForm'
 import Modal from '../components/ui/Modal'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Input from '../components/ui/Input'
+import { SkeletonTaskList } from '../components/ui/Skeleton'
 import { ListTodo } from 'lucide-react'
 
 function greeting() {
@@ -219,9 +220,7 @@ export default function HomePage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
-        </div>
+        <SkeletonTaskList count={4} />
       ) : !hasTasks ? (
         <div className="rounded-2xl border border-dashed border-white/15 py-16 text-center">
           <p className="text-muted">

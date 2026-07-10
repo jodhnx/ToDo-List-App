@@ -15,6 +15,7 @@ import QuickFilterBar from '../components/todos/QuickFilterBar'
 import Select from '../components/ui/Select'
 import { SORT_OPTIONS } from '../lib/constants'
 import Fab from '../components/ui/Fab'
+import { SkeletonTaskList } from '../components/ui/Skeleton'
 
 /** Vollständige Aufgabenliste — alle Aufgaben direkt sichtbar, + für neue mit allen Features */
 export default function TasksPage() {
@@ -172,20 +173,16 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-4 pb-4">
-      <header>
-        <h1 className="text-2xl font-bold text-primary">Aufgaben</h1>
-        <p className="text-sm text-muted">
-          {loading ? 'Lädt…' : `${filtered.length} von ${todos.length} Aufgaben`}
-        </p>
+      <header className="page-header">
+        <h1>Aufgaben</h1>
+        <p>{loading ? 'Lädt…' : `${filtered.length} von ${todos.length} Aufgaben`}</p>
       </header>
 
       <QuickFilterBar value={quickFilter} onChange={setQuickFilter} />
 
       {/* Liste zuerst — direkt alle Aufgaben sichtbar */}
       {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
-        </div>
+        <SkeletonTaskList count={5} />
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-white/15 py-16 text-center">
           <p className="text-muted">

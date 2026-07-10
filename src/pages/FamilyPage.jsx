@@ -12,10 +12,22 @@ import GroupCard from '../components/groups/GroupCard'
 import CreateGroupModal from '../components/groups/CreateGroupModal'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
+import { SkeletonGroupList } from '../components/ui/Skeleton'
 
 export default function FamilyPage() {
-  const { enabled, groups, invites, loading, inviteCount, unreadCount, createGroup, respondInvite, refreshAll } =
-    useGroups()
+  const {
+    enabled,
+    groups,
+    invites,
+    loading,
+    syncing,
+    error,
+    inviteCount,
+    unreadCount,
+    createGroup,
+    respondInvite,
+    refreshAll,
+  } = useGroups()
   const { isSupabaseConfigured, user } = useAuth()
   const { needsUsername } = useProfile()
   const { toast } = useToast()
@@ -57,7 +69,6 @@ export default function FamilyPage() {
 
   const handleCreate = async ({ name, icon }) => {
     const group = await createGroup({ name, icon })
-    await refreshAll()
     toast(`„${group.name}" erstellt — du bist Admin`, 'success')
     setCreateOpen(false)
     navigate(`/app/family/${group.id}`)
@@ -73,7 +84,6 @@ export default function FamilyPage() {
         inviterId: invite.inviter_id,
       })
       toast(accept ? 'Beigetreten!' : 'Abgelehnt', accept ? 'success' : 'info')
-      await refreshAll()
       if (accept) navigate(`/app/family/${invite.group_id}`)
     } catch (e) {
       toast(e.message, 'error')
@@ -82,10 +92,13 @@ export default function FamilyPage() {
 
   return (
     <div className="space-y-6 pb-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="page-header flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-primary">Familie & Gruppen</h1>
-          <p className="text-sm text-muted">Erstelle deine Familie und teile Aufgaben mit anderen</p>
+          <h1>Familie & Gruppen</h1>
+          <p>Erstelle deine Familie und teile Aufgaben mit anderen</p>
+          {syncing && groups.length > 0 && (
+            <p className="mt-1 text-xs text-[var(--theme-accent)]">Synchronisiert im Hintergrund…</p>
+          )}
         </div>
         <div className="flex gap-2">
           <Link to="/app/notifications">
@@ -164,8 +177,22 @@ export default function FamilyPage() {
         </Card>
       )}
 
-      {loading ? (
-        <p className="text-center text-muted">Lädt Familien…</p>
+      {error && (
+        <Card className="border-rose-500/30 bg-rose-500/10">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium text-primary">Gruppen konnten nicht vollständig geladen werden</p>
+              <p className="mt-1 text-sm text-muted">{error}</p>
+            </div>
+            <Button size="sm" variant="secondary" onClick={() => refreshAll()}>
+              Erneut laden
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {loading && groups.length === 0 ? (
+        <SkeletonGroupList count={3} />
       ) : groups.length === 0 ? (
         <Card className="py-12 text-center">
           <Users className="mx-auto mb-3 h-10 w-10 text-muted" />

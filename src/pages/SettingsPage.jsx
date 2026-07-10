@@ -80,9 +80,9 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-primary">Einstellungen</h1>
-        <p className="text-sm text-muted">Profil, Erinnerungen, KI und Sicherheit</p>
+      <div className="page-header">
+        <h1>Einstellungen</h1>
+        <p>Profil, Design, Erinnerungen und Sicherheit</p>
       </div>
 
       <Tabs tabs={settingTabs} active={tab} onChange={setTab} />
@@ -364,9 +364,18 @@ export default function SettingsPage() {
 
 function Toggle({ label, checked, onChange }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-      <span className="text-sm text-primary">{label}</span>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 rounded text-indigo-500" />
+    <label className="flex min-h-12 cursor-pointer items-center justify-between rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-input)] px-4 py-3 transition hover:bg-[var(--theme-accentSoft)]">
+      <span className="text-sm font-medium text-primary">{label}</span>
+      <span className="relative inline-flex h-7 w-12 shrink-0">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="peer sr-only"
+        />
+        <span className="absolute inset-0 rounded-full bg-[var(--theme-border)] transition peer-checked:bg-[var(--theme-accent)]" />
+        <span className="absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+      </span>
     </label>
   )
 }

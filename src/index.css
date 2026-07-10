@@ -85,8 +85,90 @@
     @apply rounded-2xl border backdrop-blur-xl;
     background: var(--theme-card);
     border-color: var(--theme-border);
-    box-shadow: 0 8px 32px var(--theme-shadow);
-    transition: background-color 240ms ease, border-color 240ms ease, box-shadow 240ms ease, color 240ms ease;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.04) inset,
+      0 8px 32px var(--theme-shadow);
+    transition:
+      background-color 240ms ease,
+      border-color 240ms ease,
+      box-shadow 240ms ease,
+      transform 220ms ease,
+      color 240ms ease;
+  }
+
+  .glass-card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06) inset,
+      0 16px 40px var(--theme-shadow);
+  }
+
+  .premium-panel {
+    @apply rounded-3xl border backdrop-blur-2xl;
+    background: color-mix(in srgb, var(--theme-card) 92%, transparent);
+    border-color: var(--theme-border);
+    box-shadow: 0 20px 50px var(--theme-shadow);
+  }
+
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .page-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--theme-primary);
+  }
+
+  @media (min-width: 640px) {
+    .page-header h1 {
+      font-size: 1.875rem;
+    }
+  }
+
+  .page-header p {
+    font-size: 0.875rem;
+    color: var(--theme-muted);
+  }
+
+  @media (min-width: 640px) {
+    .page-header p {
+      font-size: 1rem;
+    }
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 9999px;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--theme-input) 0%,
+      color-mix(in srgb, var(--theme-accentSoft) 60%, var(--theme-input)) 50%,
+      var(--theme-input) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
   }
 
   html.light .glass-card {
@@ -99,6 +181,7 @@
     background:
       radial-gradient(ellipse 80% 50% at 50% -20%, var(--theme-meshOne), transparent),
       radial-gradient(ellipse 60% 40% at 100% 0%, var(--theme-meshTwo), transparent),
+      radial-gradient(ellipse 50% 30% at 0% 100%, var(--theme-meshTwo), transparent),
       var(--theme-surface);
   }
 

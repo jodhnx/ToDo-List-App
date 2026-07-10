@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { Loader2 } from 'lucide-react'
+import { Skeleton } from '../ui/Skeleton'
 
 /** Leitet nicht eingeloggte Benutzer zur Auth-Seite um */
 export default function ProtectedRoute({ children }) {
@@ -8,8 +8,9 @@ export default function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center gradient-mesh">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 gradient-mesh px-6">
+        <Skeleton className="h-12 w-12 rounded-2xl animate-shimmer" />
+        <Skeleton className="h-4 w-32 animate-shimmer" />
       </div>
     )
   }

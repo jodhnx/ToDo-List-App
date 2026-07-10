@@ -1,11 +1,11 @@
 import { motion } from 'framer-motion'
-import { Bell, Calendar, Pencil, Trash2, Pin, Copy } from 'lucide-react'
+import { Bell, Calendar, Pencil, Trash2, Pin, Copy, Check } from 'lucide-react'
 import Badge from '../ui/Badge'
 import { getCategory, getPriority } from '../../lib/constants'
 import { isOverdue } from '../../lib/todoUtils'
 import { formatDueLabel } from '../../lib/dateTime'
 
-/** Einzelne Aufgabe mit Pin, Duplizieren und Überfällig-Markierung */
+/** Einzelne Aufgabe mit Premium-Design und weicher Erledigt-Animation */
 export default function TodoItem({ todo, onToggle, onEdit, onDelete, onPin, onDuplicate }) {
   const category = getCategory(todo.category)
   const priority = getPriority(todo.priority)
@@ -19,102 +19,95 @@ export default function TodoItem({ todo, onToggle, onEdit, onDelete, onPin, onDu
       })
     : ''
 
+  const priorityVariant =
+    todo.priority === 'hoch' ? 'danger' : todo.priority === 'niedrig' ? 'default' : 'warning'
+
   return (
     <motion.li
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      className={`group flex gap-3 rounded-xl border p-4 transition ${
-        todo.pinned
-          ? 'border-indigo-500/30 bg-indigo-500/5'
-          : 'border-white/5 bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.06]'
-      } ${todo.completed ? 'opacity-60' : ''} ${overdue ? 'border-rose-500/20' : ''}`}
+      exit={{ opacity: 0, x: -16, transition: { duration: 0.2 } }}
+      className={`group glass-card flex gap-3 p-4 sm:p-5 ${
+        todo.pinned ? 'ring-1 ring-[var(--theme-accent)]/40' : ''
+      } ${todo.completed ? 'opacity-65' : ''} ${overdue && !todo.completed ? 'ring-1 ring-rose-500/25' : ''}`}
     >
-      <button
+      <motion.button
         type="button"
         onClick={() => onToggle(todo)}
-        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
+        whileTap={{ scale: 0.9 }}
+        className={`touch-target mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition ${
           todo.completed
-            ? 'border-indigo-400 bg-indigo-400'
-            : 'border-zinc-500 hover:border-indigo-400'
+            ? 'border-[var(--theme-accent)] bg-[var(--theme-accent)] shadow-md shadow-[var(--theme-accent)]/30'
+            : 'border-[var(--theme-border)] bg-[var(--theme-input)] hover:border-[var(--theme-accent)]'
         }`}
         aria-label={todo.completed ? 'Als offen markieren' : 'Als erledigt markieren'}
       >
-        {todo.completed && (
-          <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none">
-            <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        )}
-      </button>
+        {todo.completed && <Check className="h-4 w-4 text-white" strokeWidth={3} />}
+      </motion.button>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-2">
-          <p className={`flex-1 font-medium text-primary ${todo.completed ? 'line-through text-muted' : ''}`}>
+          <p className={`flex-1 text-base font-medium text-primary ${todo.completed ? 'line-through text-muted' : ''}`}>
             {todo.title}
           </p>
-          {todo.pinned && <Pin className="h-3.5 w-3.5 shrink-0 fill-indigo-400 text-indigo-400" />}
+          {todo.pinned && <Pin className="h-4 w-4 shrink-0 fill-[var(--theme-accent)] text-[var(--theme-accent)]" />}
         </div>
         {todo.description && (
-          <p className="mt-1 text-sm text-muted line-clamp-2">{todo.description}</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted line-clamp-2">{todo.description}</p>
         )}
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <Badge className={category.color}>{category.label}</Badge>
-          <span className={`text-xs font-medium ${priority.color}`}>{priority.label}</span>
-          {overdue && (
-            <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-xs text-rose-400">Überfällig</span>
-          )}
+          <Badge variant={priorityVariant}>{priority.label}</Badge>
+          {overdue && !todo.completed && <Badge variant="danger">Überfällig</Badge>}
           {todo.due_date && (
             <span className={`flex items-center gap-1 text-xs ${overdue ? 'text-rose-400' : 'text-muted'}`}>
-              <Calendar className="h-3 w-3" />
+              <Calendar className="h-3.5 w-3.5" />
               {formatDueLabel(todo)}
             </span>
           )}
           {reminderLabel && (
-            <span className="flex items-center gap-1 rounded bg-indigo-500/10 px-1.5 py-0.5 text-xs text-indigo-300">
+            <Badge variant="accent">
               <Bell className="h-3 w-3" />
               {reminderLabel}
-            </span>
+            </Badge>
           )}
         </div>
       </div>
 
-      <div className="flex shrink-0 gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition">
-        <button
-          type="button"
-          onClick={() => onPin(todo)}
-          className={`rounded-lg p-2 transition ${
-            todo.pinned ? 'text-indigo-400' : 'text-muted hover:bg-white/10 hover:text-primary'
-          }`}
-          aria-label={todo.pinned ? 'Lösen' : 'Anpinnen'}
-        >
+      <div className="flex shrink-0 gap-0.5 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
+        <ActionBtn active={todo.pinned} onClick={() => onPin(todo)} label={todo.pinned ? 'Lösen' : 'Anpinnen'}>
           <Pin className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onDuplicate(todo)}
-          className="rounded-lg p-2 text-muted hover:bg-white/10 hover:text-primary"
-          aria-label="Duplizieren"
-        >
+        </ActionBtn>
+        <ActionBtn onClick={() => onDuplicate(todo)} label="Duplizieren">
           <Copy className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onEdit(todo)}
-          className="rounded-lg p-2 text-muted hover:bg-white/10 hover:text-primary"
-          aria-label="Bearbeiten"
-        >
+        </ActionBtn>
+        <ActionBtn onClick={() => onEdit(todo)} label="Bearbeiten">
           <Pencil className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onDelete(todo.id)}
-          className="rounded-lg p-2 text-muted hover:bg-rose-500/20 hover:text-rose-400"
-          aria-label="Löschen"
-        >
+        </ActionBtn>
+        <ActionBtn danger onClick={() => onDelete(todo.id)} label="Löschen">
           <Trash2 className="h-4 w-4" />
-        </button>
+        </ActionBtn>
       </div>
     </motion.li>
+  )
+}
+
+function ActionBtn({ children, onClick, label, active, danger }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`touch-target rounded-xl p-2 transition ${
+        danger
+          ? 'text-muted hover:bg-rose-500/15 hover:text-rose-400'
+          : active
+            ? 'text-[var(--theme-accent)]'
+            : 'text-muted hover:bg-[var(--theme-accentSoft)] hover:text-primary'
+      }`}
+      aria-label={label}
+    >
+      {children}
+    </button>
   )
 }

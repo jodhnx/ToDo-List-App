@@ -6,6 +6,7 @@ import { TodosProvider, useTodosContext } from '../../context/TodosContext'
 import { GroupsProvider, useGroups } from '../../context/GroupsContext'
 import { useNotifications } from '../../hooks/useNotifications'
 import UsernameGate from './UsernameGate'
+import PageTransition from './PageTransition'
 import { getSettings } from '../../lib/settings'
 import { useEffect, useState } from 'react'
 import { useTheme } from '../../context/ThemeContext'
@@ -97,7 +98,9 @@ function AppShellInner() {
 
         <main className={`min-w-0 flex-1 pb-28 lg:pb-0 ${largeMode ? 'space-y-6' : ''}`}>
           <UsernameGate>
-            <Outlet />
+            <PageTransition>
+              <Outlet />
+            </PageTransition>
           </UsernameGate>
         </main>
       </div>

@@ -4,13 +4,13 @@ export default function Section({ icon: Icon, title, description, children, clas
     <section className={`space-y-4 ${className}`}>
       <div className="flex items-start gap-3">
         {Icon && (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400">
-            <Icon className="h-4 w-4" />
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--theme-accentSoft)] text-[var(--theme-accent)] shadow-sm">
+            <Icon className="h-5 w-5" />
           </div>
         )}
         <div>
-          <h2 className="font-semibold text-primary">{title}</h2>
-          {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
+          <h2 className="text-lg font-semibold text-primary">{title}</h2>
+          {description && <p className="mt-0.5 text-sm leading-relaxed text-muted">{description}</p>}
         </div>
       </div>
       {children}
