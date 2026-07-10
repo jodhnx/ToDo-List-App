@@ -12,6 +12,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Modal from '../components/ui/Modal'
 import Fab from '../components/ui/Fab'
 import SpeechInputButton from '../components/ui/SpeechInputButton'
+import ShoppingQuickPanel from '../components/shopping/ShoppingQuickPanel'
 import {
   DEFAULT_SHOPPING_CATEGORY,
   getShoppingCategory,
@@ -125,7 +126,16 @@ export default function ShoppingPage() {
     addItem({ name: product, quantity: quantity || '1', category, note: '' })
   }
 
-  const handleFavoriteAdd = async (favorite) => {
+  const handleQuickAdd = async ({ name: productName, category: productCategory, quantity: productQty }) => {
+    await addItem({
+      name: productName,
+      quantity: productQty || quantity || '1',
+      category: productCategory || category,
+      note: '',
+    })
+  }
+
+  const handleFavoriteQuickAdd = async (favorite) => {
     await addItem({
       name: favorite.name,
       quantity: favorite.default_quantity || '1',
@@ -139,8 +149,10 @@ export default function ShoppingPage() {
     const favorite = favorites.find((item) => item.id === e.target.value)
     if (!favorite) return
     e.target.value = ''
-    await handleFavoriteAdd(favorite)
+    await handleFavoriteQuickAdd(favorite)
   }
+
+  const handleFavoriteAdd = handleFavoriteQuickAdd
 
   const toggleFavorite = async (item) => {
     try {
@@ -239,6 +251,26 @@ export default function ShoppingPage() {
             Gesamt
           </p>
           <p className="mt-0.5 text-xl font-bold text-primary">{stats.total}</p>
+        </div>
+      </div>
+
+      <div className="glass-card p-4">
+        <ShoppingQuickPanel
+          items={items}
+          favorites={favorites}
+          groupedFavorites={groupedFavorites}
+          quantity={quantity}
+          category={category}
+          onCategoryChange={setCategory}
+          onQuickAdd={handleQuickAdd}
+          onFavoriteAdd={handleFavoriteQuickAdd}
+          submitting={loading || syncing}
+        />
+        <div className="mt-4">
+          <Button type="button" variant="secondary" onClick={() => setModalOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Eigenes Produkt
+          </Button>
         </div>
       </div>
 

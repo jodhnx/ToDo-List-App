@@ -8,6 +8,7 @@ import Input from '../ui/Input'
 import Modal from '../ui/Modal'
 import Select from '../ui/Select'
 import SpeechInputButton from '../ui/SpeechInputButton'
+import ShoppingQuickPanel from '../shopping/ShoppingQuickPanel'
 import { useToast } from '../../context/ToastContext'
 import { useShoppingFavorites } from '../../hooks/useShoppingFavorites'
 import {
@@ -46,7 +47,6 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
   )
 
   const activeCategory = getShoppingCategory(form.category)
-  const suggestions = activeCategory.products
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -109,6 +109,7 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
     }
     const ok = await onCreate(payload)
     if (ok !== false) resetAndClose()
+    return ok
   }
 
   const handleSubmit = async (e) => {
@@ -117,18 +118,20 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
     await submit(form)
   }
 
-  const handleSuggestion = async (name) => {
-    await submit({ name, category: form.category, quantity: form.quantity || '1', note: '' })
+  const handleQuickAdd = async ({ name, category, quantity }) => {
+    await submit({
+      name,
+      category: category || form.category,
+      quantity: quantity || form.quantity || '1',
+      note: '',
+    })
   }
 
-  const handleFavoriteSelect = async (e) => {
-    const favorite = favorites.find((item) => item.id === e.target.value)
-    if (!favorite) return
-    e.target.value = ''
+  const handleFavoriteAdd = async (favorite) => {
     const ok = await submit({
       name: favorite.name,
       category: favorite.category,
-      quantity: favorite.default_quantity || '1',
+      quantity: favorite.default_quantity || form.quantity || '1',
       note: '',
     })
     if (ok !== false) await recordFavoriteUse(favorite)
@@ -136,22 +139,22 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
 
   return (
     <div className="space-y-4 pb-20 lg:pb-0">
-      <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
-        <div className="rounded-xl bg-white/[0.04] px-3 py-2">
+      <div className="grid grid-cols-3 gap-2 rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-card)] p-2">
+        <div className="rounded-xl bg-[var(--theme-input)] px-3 py-2">
           <p className="flex items-center gap-1 text-[11px] text-muted">
             <Plus className="h-3.5 w-3.5 text-amber-300" />
             Noch einkaufen
           </p>
           <p className="mt-0.5 text-xl font-bold text-primary">{stats.open}</p>
         </div>
-        <div className="rounded-xl bg-white/[0.04] px-3 py-2">
+        <div className="rounded-xl bg-[var(--theme-input)] px-3 py-2">
           <p className="flex items-center gap-1 text-[11px] text-muted">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
             Im Wagen
           </p>
           <p className="mt-0.5 text-xl font-bold text-primary">{stats.checked}</p>
         </div>
-        <div className="rounded-xl bg-white/[0.04] px-3 py-2">
+        <div className="rounded-xl bg-[var(--theme-input)] px-3 py-2">
           <p className="flex items-center gap-1 text-[11px] text-muted">
             <ShoppingBasket className="h-3.5 w-3.5 text-indigo-300" />
             Gesamt
@@ -160,7 +163,27 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-surface/50 p-3 sm:flex-row sm:items-center">
+      <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-card)] p-4">
+        <ShoppingQuickPanel
+          items={items}
+          favorites={favorites}
+          groupedFavorites={groupedFavorites}
+          quantity={form.quantity}
+          category={form.category}
+          onCategoryChange={(label) => setForm((current) => ({ ...current, category: label }))}
+          onQuickAdd={handleQuickAdd}
+          onFavoriteAdd={handleFavoriteAdd}
+          submitting={submitting}
+        />
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" onClick={() => setModalOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Eigenes Produkt
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-card)] p-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <input
@@ -179,7 +202,7 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
             </button>
           )}
         </div>
-        <label className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-muted">
+        <label className="flex items-center gap-2 rounded-xl border border-[var(--theme-border)] px-3 py-2 text-sm text-muted">
           <input
             type="checkbox"
             checked={showChecked}
@@ -188,29 +211,19 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
           />
           Abgehakte anzeigen
         </label>
-        <Button onClick={() => setModalOpen(true)} className="hidden gap-2 sm:inline-flex">
-          <Plus className="h-4 w-4" />
-          Produkt hinzufügen
-        </Button>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/15 px-4 py-16 text-center">
+        <div className="rounded-2xl border border-dashed border-[var(--theme-border)] px-4 py-16 text-center">
           <ShoppingBasket className="mx-auto mb-3 h-10 w-10 text-indigo-300/70" />
           <p className="text-muted">
             {items.length === 0 ? 'Noch keine Produkte auf der gemeinsamen Liste.' : 'Keine Treffer gefunden.'}
           </p>
           <p className="mt-2 text-xs text-muted">
             {items.length === 0
-              ? 'Tippe auf das große +, damit alle in der Familie Produkte hinzufügen können.'
+              ? 'Wähle oben eine Kategorie und tippe auf ein Produkt.'
               : 'Ändere die Suche oder zeige abgehakte Produkte wieder an.'}
           </p>
-          {items.length === 0 && (
-            <Button onClick={() => setModalOpen(true)} className="mt-4">
-              <Plus className="h-4 w-4" />
-              Erstes Produkt
-            </Button>
-          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -218,7 +231,7 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
             <section key={group} className="space-y-2">
               <h2 className="flex items-center justify-between text-sm font-semibold text-muted">
                 <span>{group}</span>
-                <span className="rounded-full bg-white/[0.04] px-2 py-0.5 text-xs font-normal">
+                <span className="rounded-full bg-[var(--theme-input)] px-2 py-0.5 text-xs font-normal">
                   {groupItems.length}
                 </span>
               </h2>
@@ -233,17 +246,17 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
                       exit={{ opacity: 0, x: -16 }}
                       className={`flex items-start gap-3 rounded-2xl border p-3 transition ${
                         item.checked
-                          ? 'border-white/5 bg-white/[0.02]'
-                          : 'border-white/10 bg-white/[0.05] shadow-sm shadow-black/10'
+                          ? 'border-[var(--theme-border)] bg-[var(--theme-input)] opacity-70'
+                          : 'border-[var(--theme-border)] bg-[var(--theme-card)] shadow-sm'
                       }`}
                     >
                       <button
                         type="button"
                         onClick={() => onToggle(item)}
-                        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                        className={`touch-target mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
                           item.checked
                             ? 'border-emerald-400 bg-emerald-400 text-zinc-950'
-                            : 'border-zinc-500 text-transparent'
+                            : 'border-[var(--theme-border)] text-transparent'
                         }`}
                         aria-label={item.checked ? 'Produkt wieder öffnen' : 'Produkt abhaken'}
                       >
@@ -283,7 +296,7 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={resetAndClose} title="Gemeinsames Produkt hinzufügen">
+      <Modal open={modalOpen} onClose={resetAndClose} title="Eigenes Produkt hinzufügen">
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             label="Produkt suchen oder eingeben"
@@ -303,53 +316,18 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
               options={shoppingCategoryOptions}
             />
           </div>
-          {favorites.length > 0 && (
-            <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3">
-              <label className="block text-sm font-semibold text-amber-100">
-                Favoriten
-                <select
-                  defaultValue=""
-                  onChange={handleFavoriteSelect}
-                  className="input-field mt-2 min-h-12 bg-black/10 text-base"
-                >
-                  <option value="">Favorit aus deinem Konto hinzufügen...</option>
-                  {Object.entries(groupedFavorites).map(([favoriteCategory, favoriteItems]) => (
-                    <optgroup key={favoriteCategory} label={favoriteCategory}>
-                      {favoriteItems.map((favorite) => (
-                        <option key={favorite.id} value={favorite.id}>
-                          {favorite.name} x{favorite.default_quantity || '1'}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-              </label>
-              <p className="mt-2 text-xs text-amber-100/75">
-                Deine gespeicherten Favoriten können direkt auf die Familienliste übernommen werden.
-              </p>
-            </div>
-          )}
           <div className={`rounded-2xl border p-3 ${activeCategory.color}`}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-base font-semibold">Typische Produkte: {activeCategory.label}</p>
-              <span className="rounded-full bg-black/15 px-3 py-1 text-sm font-semibold">
-                Menge: {form.quantity || '1'}
-              </span>
-            </div>
-            <p className="mt-1 text-sm opacity-80">
-              Erst Menge wählen, dann Produkt antippen. Alle in der Familie sehen es sofort.
-            </p>
+            <p className="text-sm font-semibold">Typische Produkte: {activeCategory.label}</p>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {suggestions.map((product) => (
+              {activeCategory.products.slice(0, 9).map((product) => (
                 <button
                   key={product}
                   type="button"
                   disabled={submitting}
-                  onClick={() => handleSuggestion(product)}
-                  className="flex min-h-14 items-center justify-between gap-2 rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-left text-base font-semibold text-primary hover:bg-white/15 disabled:opacity-50"
+                  onClick={() => setForm((current) => ({ ...current, name: product }))}
+                  className="rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-left text-sm font-medium hover:bg-white/15 disabled:opacity-50"
                 >
-                  <span>+ {product}</span>
-                  <span className="rounded-full bg-white/15 px-2 py-0.5 text-sm">x{form.quantity || '1'}</span>
+                  {product}
                 </button>
               ))}
             </div>
@@ -366,7 +344,7 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
         </form>
       </Modal>
 
-      <Fab label="Produkt hinzufügen" showOnDesktop onClick={() => setModalOpen(true)} />
+      <Fab label="Eigenes Produkt" showOnDesktop onClick={() => setModalOpen(true)} />
     </div>
   )
 }

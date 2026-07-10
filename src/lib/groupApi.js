@@ -532,43 +532,170 @@ export function resolveMemberByUsername(members, username) {
   return members.find((m) => m.profile?.username?.toLowerCase() === q) || null
 }
 
-export async function fetchGroupActivity(groupId, limit = 20) {
-  let { data: tasks, error } = await supabase
+export async function fetchGroupAllComments(groupId) {
+  const { data: tasks, error: tErr } = await supabase
+    .from('shared_tasks')
+    .select('id, title')
+    .eq('group_id', groupId)
+  if (tErr) throw new Error(formatGroupError(tErr))
+  if (!tasks?.length) return []
+
+  const taskMap = Object.fromEntries(tasks.map((t) => [t.id, t.title]))
+  const taskIds = tasks.map((t) => t.id)
+
+  const { data: comments, error: cErr } = await supabase
+    .from('task_comments')
+    .select('id, task_id, user_id, body, created_at')
+    .in('task_id', taskIds)
+    .order('created_at', { ascending: false })
+    .limit(100)
+  if (cErr) throw new Error(formatGroupError(cErr))
+
+  const userIds = [...new Set((comments || []).map((c) => c.user_id).filter(Boolean))]
+  let profileMap = {}
+  if (userIds.length) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', userIds)
+    profileMap = Object.fromEntries((profiles || []).map((p) => [p.id, p]))
+  }
+
+  return (comments || []).map((c) => ({
+    ...c,
+    taskTitle: taskMap[c.task_id] || 'Aufgabe',
+    profile: profileMap[c.user_id] || null,
+  }))
+}
+
+export async function fetchGroupActivity(groupId, limit = 30) {
+  let tasksRes = await supabase
     .from('shared_tasks')
     .select('id, title, status, created_at, updated_at, creator_id, completed_by, completed_at')
     .eq('group_id', groupId)
     .order('updated_at', { ascending: false })
-    .limit(limit)
+    .limit(50)
 
-  if (error && /completed_by|completed_at|column/i.test(error.message || '')) {
-    const retry = await supabase
+  if (tasksRes.error && /completed_by|completed_at|column/i.test(tasksRes.error.message || '')) {
+    tasksRes = await supabase
       .from('shared_tasks')
       .select('id, title, status, created_at, updated_at, creator_id')
       .eq('group_id', groupId)
       .order('updated_at', { ascending: false })
-      .limit(limit)
-    tasks = retry.data
-    error = retry.error
+      .limit(50)
   }
 
-  if (error) throw error
+  const shoppingRes = await supabase
+    .from('group_shopping_items')
+    .select('id, name, checked, created_at, updated_at, created_by, checked_by')
+    .eq('group_id', groupId)
+    .order('created_at', { ascending: false })
+    .limit(50)
 
-  const creatorIds = [...new Set((tasks || []).flatMap((t) => [t.creator_id, t.completed_by].filter(Boolean)))]
+  const taskRows = tasksRes.data || []
+  const taskIds = taskRows.map((t) => t.id)
+  let commentRows = []
+  if (taskIds.length) {
+    const commentsRes = await supabase
+      .from('task_comments')
+      .select('id, task_id, user_id, body, created_at')
+      .in('task_id', taskIds)
+      .order('created_at', { ascending: false })
+      .limit(40)
+    if (!commentsRes.error) commentRows = commentsRes.data || []
+  }
+
+  const taskTitleMap = Object.fromEntries(taskRows.map((t) => [t.id, t.title]))
+  const actorIds = new Set()
+  for (const t of taskRows) {
+    if (t.creator_id) actorIds.add(t.creator_id)
+    if (t.completed_by) actorIds.add(t.completed_by)
+  }
+  for (const item of shoppingRes.data || []) {
+    if (item.created_by) actorIds.add(item.created_by)
+    if (item.checked_by) actorIds.add(item.checked_by)
+  }
+  for (const c of commentRows) {
+    if (c.user_id) actorIds.add(c.user_id)
+  }
+
   let profileMap = {}
-  if (creatorIds.length) {
-    const { data: profiles } = await supabase.from('profiles').select('id, username, display_name').in('id', creatorIds)
+  if (actorIds.size) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', [...actorIds])
     profileMap = Object.fromEntries((profiles || []).map((p) => [p.id, p]))
   }
 
-  return (tasks || []).map((t) => {
-    const actorId = t.status === 'completed' && t.completed_by ? t.completed_by : t.creator_id
-    const p = profileMap[actorId]
-    return {
-      id: `task-${t.id}`,
-      type: t.status === 'completed' ? 'task_completed' : 'task_created',
-      at: (t.status === 'completed' && t.completed_at) || t.updated_at || t.created_at,
+  const profileLabel = (id) => {
+    const p = profileMap[id]
+    return p?.display_name || (p?.username ? `@${p.username}` : 'Mitglied')
+  }
+
+  const avatarFor = (id) => {
+    const p = profileMap[id]
+    if (!p) return null
+    return { name: p.display_name, username: p.username }
+  }
+
+  const entries = []
+
+  for (const t of taskRows) {
+    entries.push({
+      id: `task-created-${t.id}`,
+      type: 'task_created',
+      at: t.created_at,
       text: t.title,
-      user: p?.display_name || p?.username || 'Mitglied',
+      user: profileLabel(t.creator_id),
+      avatar: avatarFor(t.creator_id),
+    })
+    if (t.status === 'completed') {
+      const actorId = t.completed_by || t.creator_id
+      entries.push({
+        id: `task-done-${t.id}`,
+        type: 'task_completed',
+        at: t.completed_at || t.updated_at || t.created_at,
+        text: t.title,
+        user: profileLabel(actorId),
+        avatar: avatarFor(actorId),
+      })
     }
-  })
+  }
+
+  for (const item of shoppingRes.data || []) {
+    entries.push({
+      id: `shop-add-${item.id}`,
+      type: 'shopping_added',
+      at: item.created_at,
+      text: item.name,
+      user: profileLabel(item.created_by),
+      avatar: avatarFor(item.created_by),
+    })
+    if (item.checked) {
+      entries.push({
+        id: `shop-check-${item.id}`,
+        type: 'shopping_checked',
+        at: item.updated_at || item.created_at,
+        text: item.name,
+        user: profileLabel(item.checked_by || item.created_by),
+        avatar: avatarFor(item.checked_by || item.created_by),
+      })
+    }
+  }
+
+  for (const c of commentRows) {
+    entries.push({
+      id: `comment-${c.id}`,
+      type: 'comment',
+      at: c.created_at,
+      text: `${taskTitleMap[c.task_id] || 'Aufgabe'}: ${c.body}`,
+      user: profileLabel(c.user_id),
+      avatar: avatarFor(c.user_id),
+    })
+  }
+
+  return entries
+    .sort((a, b) => new Date(b.at) - new Date(a.at))
+    .slice(0, limit)
 }

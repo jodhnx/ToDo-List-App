@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
-import { ArrowLeft, UserPlus, Filter, Settings, Trash2, Plus } from 'lucide-react'
+import { Filter, Trash2, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useGroups } from '../context/GroupsContext'
 import { useToast } from '../context/ToastContext'
 import { getGroupIcon, GROUP_ICONS } from '../lib/groupConstants'
 import { resolveDisplayRole } from '../lib/groupRoles'
-import GroupStats from '../components/groups/GroupStats'
+import GroupFamilyDashboard from '../components/groups/GroupFamilyDashboard'
+import GroupCommentsTab from '../components/groups/GroupCommentsTab'
 import MemberList from '../components/groups/MemberList'
 import ActivityFeed from '../components/groups/ActivityFeed'
 import SharedTaskItem from '../components/groups/SharedTaskItem'
@@ -43,6 +44,7 @@ export default function GroupDetailPage() {
     deleteTask,
     fetchComments,
     addComment,
+    fetchGroupComments,
     inviteMember,
     removeMember,
     setMemberRole,
@@ -68,6 +70,7 @@ export default function GroupDetailPage() {
   const [filter, setFilter] = useState('all')
   const [inviteOpen, setInviteOpen] = useState(false)
   const [tab, setTab] = useState('tasks')
+  const [commentsTaskId, setCommentsTaskId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [shoppingSubmitting, setShoppingSubmitting] = useState(false)
   const [shoppingUnavailable, setShoppingUnavailable] = useState(false)
@@ -82,6 +85,8 @@ export default function GroupDetailPage() {
   const [deleteGroupOpen, setDeleteGroupOpen] = useState(false)
   const [savingGroup, setSavingGroup] = useState(false)
   const [busyAction, setBusyAction] = useState('')
+  const loadTimerRef = useRef(null)
+  const loadingRef = useRef(false)
 
   const myMembership = useMemo(
     () => members.find((m) => m.user_id === user?.id),
@@ -92,6 +97,11 @@ export default function GroupDetailPage() {
     : resolveDisplayRole({ role: group?.my_role, user_id: user?.id }, group?.owner_id || group?.created_by)
   const canManageGroup = myRole === 'owner'
 
+  const activityCount = useMemo(() => {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+    return activity.filter((entry) => new Date(entry.at).getTime() >= weekAgo).length
+  }, [activity])
+
   useEffect(() => {
     setGroupName(group?.name || '')
     setGroupIcon(group?.icon || 'home')
@@ -100,29 +110,46 @@ export default function GroupDetailPage() {
   }, [group?.name, group?.icon, group?.description, group?.avatar_url])
 
   const load = useCallback(async () => {
-    if (!groupId) return
-    const [m, t, a] = await Promise.all([
-      fetchMembers(groupId),
-      fetchTasks(groupId),
-      fetchActivity(groupId),
-    ])
-    setMembers(m)
-    setTasks(t)
-    setActivity(a)
-
+    if (!groupId || loadingRef.current) return
+    loadingRef.current = true
     try {
-      const shopping = await fetchShoppingItems(groupId)
-      setShoppingItems(shopping)
-      setShoppingUnavailable(false)
-    } catch (err) {
-      console.warn('Gemeinsame Einkaufsliste nicht verfügbar:', err)
-      setShoppingItems([])
-      setShoppingUnavailable(true)
+      const [membersResult, tasksResult, activityResult] = await Promise.allSettled([
+        fetchMembers(groupId),
+        fetchTasks(groupId),
+        fetchActivity(groupId),
+      ])
+
+      if (membersResult.status === 'fulfilled') setMembers(membersResult.value)
+      if (tasksResult.status === 'fulfilled') setTasks(tasksResult.value)
+      if (activityResult.status === 'fulfilled') setActivity(activityResult.value)
+
+      try {
+        const shopping = await fetchShoppingItems(groupId)
+        setShoppingItems(shopping)
+        setShoppingUnavailable(false)
+      } catch (err) {
+        console.warn('Gemeinsame Einkaufsliste nicht verfügbar:', err)
+        setShoppingItems([])
+        setShoppingUnavailable(true)
+      }
+    } finally {
+      loadingRef.current = false
     }
   }, [groupId, fetchMembers, fetchTasks, fetchActivity, fetchShoppingItems])
 
+  const scheduleLoad = useCallback(
+    (delay = 350) => {
+      if (loadTimerRef.current) window.clearTimeout(loadTimerRef.current)
+      loadTimerRef.current = window.setTimeout(() => load(), delay)
+    },
+    [load],
+  )
+
   useEffect(() => {
     load()
+    return () => {
+      if (loadTimerRef.current) window.clearTimeout(loadTimerRef.current)
+    }
   }, [load])
 
   useEffect(() => {
@@ -139,19 +166,22 @@ export default function GroupDetailPage() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'shared_tasks', filter: `group_id=eq.${groupId}` },
-        () => load(),
+        () => scheduleLoad(),
       )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${groupId}` }, () =>
-        load(),
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${groupId}` },
+        () => scheduleLoad(),
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'group_shopping_items', filter: `group_id=eq.${groupId}` },
-        () => load(),
+        () => scheduleLoad(),
       )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => scheduleLoad())
       .subscribe()
     return () => supabase.removeChannel(ch)
-  }, [groupId, load])
+  }, [groupId, scheduleLoad])
 
   const filtered = useMemo(() => {
     let list = tasks
@@ -160,6 +190,8 @@ export default function GroupDetailPage() {
     if (filter === 'done') list = list.filter((t) => t.status === 'completed')
     return list
   }, [tasks, filter, user?.id])
+
+  const loadGroupComments = useCallback(() => fetchGroupComments(groupId), [fetchGroupComments, groupId])
 
   const handleCreate = async (payload) => {
     setSubmitting(true)
@@ -339,6 +371,11 @@ export default function GroupDetailPage() {
     }
   }
 
+  const handleOpenComments = (task) => {
+    setCommentsTaskId(task.id)
+    setTab('comments')
+  }
+
   if (!group) {
     return (
       <Card>
@@ -352,51 +389,26 @@ export default function GroupDetailPage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <Card className="p-4 sm:p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <div className="flex items-start gap-3">
-            <Link to="/app/family" className="rounded-xl p-2 text-muted hover:bg-[var(--theme-accentSoft)]">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            {group.avatar_url ? (
-              <img src={group.avatar_url} alt="" className="h-14 w-14 rounded-2xl object-cover shadow-sm" />
-            ) : (
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--theme-accentSoft)] text-[var(--theme-accent)]">
-                <Icon className="h-7 w-7" />
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <h1 className="truncate text-2xl font-bold text-primary sm:text-3xl">{group.name}</h1>
-              <p className="mt-1 text-sm text-muted">
-                {members.length} Mitglieder · Dein Rang:{' '}
-                {myRole === 'owner' ? 'Oberadmin' : myRole === 'admin' ? 'Admin' : 'Mitglied'}
-              </p>
-              {group.description && <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">{group.description}</p>}
-            </div>
-          </div>
-          <div className="flex shrink-0 gap-2 sm:ml-auto">
-            {canManageGroup && (
-              <Button size="sm" variant="secondary" onClick={() => setManageOpen(true)} className="flex-1 gap-1 sm:flex-none">
-                <Settings className="h-4 w-4" />
-                <span>Verwalten</span>
-              </Button>
-            )}
-            <Button size="sm" variant="secondary" onClick={() => setInviteOpen(true)} className="flex-1 gap-1 sm:flex-none">
-              <UserPlus className="h-4 w-4" />
-              Einladen
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      <GroupStats tasks={tasks} members={members} />
+      <GroupFamilyDashboard
+        group={group}
+        groupIcon={Icon}
+        members={members}
+        tasks={tasks}
+        shoppingItems={shoppingItems}
+        activityCount={activityCount}
+        myRole={myRole}
+        canManageGroup={canManageGroup}
+        onInvite={() => setInviteOpen(true)}
+        onManage={() => setManageOpen(true)}
+      />
 
       <Tabs
         tabs={[
           { id: 'tasks', label: 'Aufgaben' },
           { id: 'shopping', label: 'Einkauf' },
           { id: 'members', label: 'Mitglieder' },
-          { id: 'activity', label: 'Aktivität' },
+          { id: 'comments', label: 'Kommentare' },
+          { id: 'activity', label: 'Aktivitäten' },
         ]}
         active={tab}
         onChange={setTab}
@@ -406,25 +418,27 @@ export default function GroupDetailPage() {
         <>
           <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-card)] p-3 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              <Filter className="h-4 w-4 shrink-0 text-muted" />
-              {filterTabs.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setFilter(f.id)}
-                  className={`min-h-10 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
-                    filter === f.id ? 'bg-[var(--theme-accentSoft)] text-[var(--theme-accent)]' : 'bg-[var(--theme-input)] text-muted'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-            <Button type="button" size="sm" onClick={() => setTaskFormOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Aufgabe
-            </Button>
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                <Filter className="h-4 w-4 shrink-0 text-muted" />
+                {filterTabs.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setFilter(f.id)}
+                    className={`min-h-10 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
+                      filter === f.id
+                        ? 'bg-[var(--theme-accentSoft)] text-[var(--theme-accent)]'
+                        : 'bg-[var(--theme-input)] text-muted'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              <Button type="button" size="sm" onClick={() => setTaskFormOpen(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Aufgabe
+              </Button>
             </div>
           </div>
           <ul className="space-y-3">
@@ -439,8 +453,7 @@ export default function GroupDetailPage() {
                   onToggle={handleToggle}
                   onAssign={handleAssign}
                   onDelete={setDeleteTaskTarget}
-                  fetchComments={fetchComments}
-                  addComment={addComment}
+                  onOpenComments={handleOpenComments}
                 />
               ))}
             </AnimatePresence>
@@ -449,7 +462,7 @@ export default function GroupDetailPage() {
             <Card className="text-center">
               <p className="font-medium text-primary">Hier ist gerade nichts zu tun.</p>
               <p className="mt-1 text-sm text-muted">
-                Wähle einen anderen Filter oder füge unten eine neue Aufgabe für die Familie hinzu.
+                Wähle einen anderen Filter oder füge eine neue Aufgabe für die Familie hinzu.
               </p>
             </Card>
           )}
@@ -469,8 +482,8 @@ export default function GroupDetailPage() {
         />
       )}
 
-      {tab === 'shopping' && (
-        shoppingUnavailable ? (
+      {tab === 'shopping' &&
+        (shoppingUnavailable ? (
           <Card>
             <p className="font-medium text-primary">Gemeinsame Einkaufsliste noch nicht aktiviert</p>
             <p className="mt-2 text-sm text-muted">
@@ -486,7 +499,17 @@ export default function GroupDetailPage() {
             onToggle={handleToggleShoppingItem}
             onDelete={handleDeleteShoppingItem}
           />
-        )
+        ))}
+
+      {tab === 'comments' && (
+        <GroupCommentsTab
+          tasks={tasks}
+          currentUserId={user.id}
+          fetchComments={fetchComments}
+          addComment={addComment}
+          fetchGroupComments={loadGroupComments}
+          initialTaskId={commentsTaskId}
+        />
       )}
 
       {tab === 'activity' && (

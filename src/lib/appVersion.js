@@ -1,7 +1,9 @@
-export const APP_VERSION = '1.2.19'
+export const APP_VERSION = '1.2.20'
 export const APP_BASE_VERSION = '1.0.0'
 export const APP_CHANGELOG = [
-  'Datensicherheit: Merge-Logik schützt Aufgaben, Einkauf und Gruppen.',
-  'Profile werden nur noch gezielt aktualisiert, ohne Überschreiben.',
-  'Neue sichere Migration v20 für dauerhafte Datenerhaltung.',
+  'Familien-Dashboard: Bild, Beschreibung, Mitglieder und Statistiken auf einen Blick.',
+  'Einkauf: 14 Kategorien mit Symbolen, Favoriten, zuletzt gekauft und Ein-Klick-Hinzufügen.',
+  'Gruppen-Tabs: Aufgaben, Einkauf, Mitglieder, Kommentare und Aktivitäten.',
+  'Messenger-Kommentare mit Antworten, Emojis und Echtzeit-Updates.',
+  'Erweiterter Aktivitätsfeed und Performance-Indizes (Migration v21).',
 ]

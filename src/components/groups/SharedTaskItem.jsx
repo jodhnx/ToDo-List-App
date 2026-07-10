@@ -3,7 +3,6 @@ import { Bell, Calendar, MessageCircle, Trash2, User } from 'lucide-react'
 import { getGroupCategory } from '../../lib/groupConstants'
 import { formatDueLabel } from '../../lib/dateTime'
 import Avatar from '../ui/Avatar'
-import TaskComments from './TaskComments'
 
 export default function SharedTaskItem({
   task,
@@ -12,9 +11,8 @@ export default function SharedTaskItem({
   onToggle,
   onAssign,
   onDelete,
+  onOpenComments,
   members,
-  fetchComments,
-  addComment,
 }) {
   const cat = getGroupCategory(task.category)
   const CatIcon = cat.icon
@@ -98,9 +96,16 @@ export default function SharedTaskItem({
           )}
         </div>
         <div className="flex shrink-0 flex-col gap-1">
-          <div className="rounded-lg p-2 text-muted" aria-label="Kommentare">
-            <MessageCircle className="h-4 w-4" />
-          </div>
+          {onOpenComments && (
+            <button
+              type="button"
+              onClick={() => onOpenComments(task)}
+              className="touch-target rounded-lg p-2 text-muted hover:bg-[var(--theme-accentSoft)] hover:text-[var(--theme-accent)]"
+              aria-label="Kommentare öffnen"
+            >
+              <MessageCircle className="h-4 w-4" />
+            </button>
+          )}
           {onDelete && (
             <button
               type="button"
@@ -113,15 +118,6 @@ export default function SharedTaskItem({
           )}
         </div>
       </div>
-      <TaskComments
-        taskId={task.id}
-        taskTitle={task.title}
-        creatorId={task.creator_id}
-        assigneeId={task.assignee_id}
-        currentUserId={currentUserId}
-        fetchComments={fetchComments}
-        addComment={addComment}
-      />
     </motion.li>
   )
 }
