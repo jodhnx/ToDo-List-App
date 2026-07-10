@@ -28,10 +28,16 @@ export function getSettings() {
 }
 
 export function saveSettings(partial) {
-  const next = { ...getSettings(), ...partial }
+  const current = getSettings()
+  const next = { ...current, ...partial }
   write('prefs', next)
   window.dispatchEvent?.(new CustomEvent('focus-settings-change', { detail: next }))
   return next
+}
+
+/** Einstellungen nur ergänzen — vorhandene Werte bleiben erhalten. */
+export function mergeSettings(partial) {
+  return saveSettings(partial)
 }
 
 export function getAiApiKey() {

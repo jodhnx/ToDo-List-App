@@ -117,14 +117,30 @@ export async function fetchMyGroups(userId) {
   }
 
   const meta = Object.fromEntries(memberships.map((m) => [m.group_id, m]))
-  return (groups || []).map((g) => ({
-    ...g,
-    owner_id: g.owner_id || g.created_by,
-    my_role: meta[g.id]?.role,
-    joined_at: meta[g.id]?.joined_at,
-    member_count: memberCounts[g.id] || 0,
-    owner: ownerProfiles[g.owner_id || g.created_by] || null,
-  }))
+  const groupMap = Object.fromEntries((groups || []).map((g) => [g.id, g]))
+
+  return memberships.map((m) => {
+    const g = groupMap[m.group_id]
+    if (g) {
+      return {
+        ...g,
+        owner_id: g.owner_id || g.created_by,
+        my_role: meta[m.group_id]?.role,
+        joined_at: meta[m.group_id]?.joined_at,
+        member_count: memberCounts[g.id] || 0,
+        owner: ownerProfiles[g.owner_id || g.created_by] || null,
+      }
+    }
+    return {
+      id: m.group_id,
+      name: 'Familiengruppe',
+      icon: 'home',
+      my_role: meta[m.group_id]?.role,
+      joined_at: meta[m.group_id]?.joined_at,
+      member_count: memberCounts[m.group_id] || 0,
+      owner: null,
+    }
+  })
 }
 
 export async function fetchGroupMembers(groupId) {

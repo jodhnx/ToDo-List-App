@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase'
 import { normalizeUsername } from './username'
+import { pickDefinedFields } from './dataSafety'
 
 export async function fetchProfile(userId) {
   if (!isSupabaseConfigured || !supabase || !userId) return null
@@ -21,21 +22,34 @@ export async function fetchProfileByUsername(username) {
 
 export async function upsertProfile({ id, username, display_name, avatar_url }) {
   if (!isSupabaseConfigured || !supabase) throw new Error('Supabase erforderlich')
-  const row = {
-    id,
-    username: normalizeUsername(username),
-    display_name: display_name || null,
-    avatar_url: avatar_url || null,
+
+  const existing = await fetchProfile(id)
+  if (existing) {
+    const patch = pickDefinedFields({
+      username: username !== undefined ? normalizeUsername(username) : undefined,
+      display_name,
+      avatar_url,
+    })
+    if (!Object.keys(patch).length) return existing
+    return updateProfileFields(id, patch)
   }
-  const { data, error } = await supabase.from('profiles').upsert(row).select().single()
+
+  const row = pickDefinedFields({
+    id,
+    username: username !== undefined ? normalizeUsername(username) : undefined,
+    display_name: display_name ?? null,
+    avatar_url: avatar_url ?? null,
+  })
+  const { data, error } = await supabase.from('profiles').insert(row).select().single()
   if (error) throw error
   return data
 }
 
 export async function updateProfileFields(userId, fields) {
   if (!isSupabaseConfigured || !supabase) throw new Error('Supabase erforderlich')
-  const patch = { ...fields }
+  const patch = pickDefinedFields({ ...fields })
   if (patch.username) patch.username = normalizeUsername(patch.username)
+  if (!Object.keys(patch).length) return fetchProfile(userId)
   const { data, error } = await supabase.from('profiles').update(patch).eq('id', userId).select().single()
   if (error) throw error
   return data

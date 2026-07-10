@@ -13,6 +13,7 @@ import {
   localUpdateShoppingItem,
 } from '../lib/localStorage'
 import { DEFAULT_SHOPPING_CATEGORY, hasOpenShoppingDuplicate } from '../lib/shoppingCatalog'
+import { mergeRecordsById } from '../lib/dataSafety'
 
 function buildRow(payload) {
   return {
@@ -137,7 +138,8 @@ export function useShoppingList() {
 
     setLoading(true)
     setError(null)
-    setItems(localGetShoppingItems(userId))
+    const cached = localGetShoppingItems(userId)
+    setItems(cached)
     try {
       if (canReachCloud) {
         await syncQueuedItems()
@@ -148,7 +150,8 @@ export function useShoppingList() {
           .order('created_at', { ascending: false })
 
         if (err) throw new Error(formatShoppingError(err))
-        setItemsAndCache(data || [])
+        const merged = mergeRecordsById(data || [], cached)
+        setItemsAndCache(merged)
       } else {
         setItems(localGetShoppingItems(userId))
         if (hasCloud) setError('Offline: Einkaufsliste wird später mit deinem Konto synchronisiert.')

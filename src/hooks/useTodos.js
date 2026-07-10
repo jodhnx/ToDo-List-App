@@ -12,6 +12,7 @@ import {
   localUpdateTodo,
 } from '../lib/localStorage'
 import { useAuth } from '../context/AuthContext'
+import { mergeRecordsById } from '../lib/dataSafety'
 
 async function fetchTodosFromSupabase(userId) {
   let query = supabase.from('todos').select('*').eq('user_id', userId)
@@ -193,8 +194,9 @@ export function useTodos() {
       if (canReachCloud) {
         await syncQueuedTodos()
         const data = await fetchTodosFromSupabase(userId)
-        setTodosAndCache(data)
-        localSaveTodos(userId, data)
+        const merged = mergeRecordsById(data, cached)
+        setTodosAndCache(merged)
+        localSaveTodos(userId, merged)
       } else {
         setTodos(localGetTodos(userId))
         if (hasCloud) setError('Offline: Änderungen werden später mit deinem Konto synchronisiert.')

@@ -1,7 +1,7 @@
-export const APP_VERSION = '1.2.18'
+export const APP_VERSION = '1.2.19'
 export const APP_BASE_VERSION = '1.0.0'
 export const APP_CHANGELOG = [
-  'Großes UI-Update mit Premium-Glasdesign und flüssigen Übergängen.',
-  'Gruppen werden zuverlässiger geladen, gecached und synchronisiert.',
-  'Skeleton-Loader, moderne Karten und verbesserte Aufgabenansicht.',
+  'Datensicherheit: Merge-Logik schützt Aufgaben, Einkauf und Gruppen.',
+  'Profile werden nur noch gezielt aktualisiert, ohne Überschreiben.',
+  'Neue sichere Migration v20 für dauerhafte Datenerhaltung.',
 ]

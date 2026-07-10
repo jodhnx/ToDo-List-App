@@ -2,6 +2,7 @@ import { createContext, useContext, useCallback, useEffect, useMemo, useRef, use
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import { getCachedGroups, setCachedGroups } from '../lib/groupsCache'
+import { mergeGroups } from '../lib/dataSafety'
 import {
   groupsEnabled,
   createGroup,
@@ -59,9 +60,11 @@ export function GroupsProvider({ children }) {
     for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
       try {
         const data = await fetchMyGroups(userId)
-        setGroups(data)
-        setCachedGroups(userId, data)
-        return data
+        const cached = getCachedGroups(userId)
+        const merged = mergeGroups(data, cached)
+        setGroups(merged)
+        if (merged.length) setCachedGroups(userId, merged)
+        return merged
       } catch (err) {
         lastError = err
         if (attempt < MAX_RETRIES - 1) await wait(RETRY_DELAY_MS * (attempt + 1))

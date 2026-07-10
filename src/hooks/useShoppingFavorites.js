@@ -12,6 +12,7 @@ import {
   localSaveShoppingFavoritesSyncQueue,
 } from '../lib/localStorage'
 import { DEFAULT_SHOPPING_CATEGORY, normalizeShoppingName } from '../lib/shoppingCatalog'
+import { mergeFavorites } from '../lib/dataSafety'
 
 function formatFavoriteError(err) {
   const msg = err?.message || String(err)
@@ -137,7 +138,8 @@ export function useShoppingFavorites() {
 
     setLoading(true)
     setError(null)
-    setFavorites(localGetShoppingFavorites(userId))
+    const cached = localGetShoppingFavorites(userId)
+    setFavorites(cached)
 
     if (!canReachCloud) {
       setLoading(false)
@@ -153,8 +155,10 @@ export function useShoppingFavorites() {
         .order('use_count', { ascending: false })
         .order('product_name', { ascending: true })
       if (err) throw err
-      setFavoritesAndCache((data || []).map(normalizeFavorite))
+      const normalized = (data || []).map(normalizeFavorite)
+      setFavoritesAndCache(mergeFavorites(normalized, cached))
     } catch (err) {
+      setFavorites(localGetShoppingFavorites(userId))
       setError(formatFavoriteError(err))
     } finally {
       setLoading(false)

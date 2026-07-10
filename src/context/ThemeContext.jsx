@@ -58,7 +58,10 @@ export function ThemeProvider({ children }) {
         .eq('id', user.id)
       setSaving(false)
 
-      if (error) return { error }
+      if (error) {
+        // Theme bleibt lokal gespeichert auch wenn Cloud-Update fehlschlägt
+        return { error, localSaved: true }
+      }
       return { success: true }
     },
     [mode, user?.id],
