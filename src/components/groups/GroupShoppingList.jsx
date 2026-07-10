@@ -163,7 +163,7 @@ export default function GroupShoppingList({ items, onCreate, onToggle, onDelete,
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-card)] p-4">
+      <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-card)] p-3">
         <ShoppingQuickPanel
           items={items}
           favorites={favorites}

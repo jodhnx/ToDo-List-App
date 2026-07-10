@@ -254,7 +254,7 @@ export default function ShoppingPage() {
         </div>
       </div>
 
-      <div className="glass-card p-4">
+      <div className="glass-card p-3">
         <ShoppingQuickPanel
           items={items}
           favorites={favorites}
