@@ -179,7 +179,16 @@ export function useShoppingList() {
         { event: '*', schema: 'public', table: 'shopping_items', filter: `user_id=eq.${userId}` },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setItemsAndCache((prev) => (prev.some((item) => item.id === payload.new.id) ? prev : [payload.new, ...prev]))
+            setItemsAndCache((prev) => {
+              if (prev.some((item) => item.id === payload.new.id)) return prev
+              const withoutOptimistic = prev.filter(
+                (item) =>
+                  !item._optimistic ||
+                  item.name?.toLowerCase() !== payload.new.name?.toLowerCase() ||
+                  item.category !== payload.new.category,
+              )
+              return [payload.new, ...withoutOptimistic]
+            })
           } else if (payload.eventType === 'UPDATE') {
             setItemsAndCache((prev) => prev.map((item) => (item.id === payload.new.id ? payload.new : item)))
           } else if (payload.eventType === 'DELETE') {
@@ -205,8 +214,7 @@ export function useShoppingList() {
     if (!userId) throw new Error('Nicht angemeldet')
     const row = buildRow(payload)
     if (!row.name) throw new Error('Bitte Produkt eingeben')
-    const duplicate = hasOpenShoppingDuplicate(items, row.name, row.category)
-    if (duplicate) {
+    if (hasOpenShoppingDuplicate(items, row.name, row.category)) {
       const existing = items.find(
         (item) =>
           !item.checked &&
@@ -216,32 +224,57 @@ export function useShoppingList() {
       return { duplicate: true, ...existing }
     }
 
+    const tempId = `opt-${crypto.randomUUID()}`
+    const optimistic = {
+      id: tempId,
+      user_id: userId,
+      ...row,
+      checked: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      _pendingSync: true,
+      _optimistic: true,
+    }
+    setItemsAndCache((prev) => [optimistic, ...prev])
+
     if (canReachCloud) {
-      setSyncing(true)
       try {
         const data = await insertRemote(row)
-        if (data?.duplicate) return data
-        setItemsAndCache((prev) => [data, ...prev])
+        if (data?.duplicate) {
+          setItemsAndCache((prev) => prev.filter((item) => item.id !== tempId))
+          return data
+        }
+        setItemsAndCache((prev) => prev.map((item) => (item.id === tempId ? data : item)))
         return data
       } catch (err) {
-        if (!isNetworkError(err)) throw new Error(formatShoppingError(err))
+        if (!isNetworkError(err)) {
+          setItemsAndCache((prev) => prev.filter((item) => item.id !== tempId))
+          throw new Error(formatShoppingError(err))
+        }
         const local = localCreateShoppingItem(userId, { ...row, _pendingSync: true, _syncState: 'create' })
         localQueueShoppingSync(userId, { type: 'create', item: local })
-        setItemsAndCache((prev) => [local, ...prev])
+        setItemsAndCache((prev) => prev.map((item) => (item.id === tempId ? local : item)))
         return local
-      } finally {
-        setSyncing(false)
       }
     }
 
     const local = localCreateShoppingItem(userId, { ...row, _pendingSync: true, _syncState: 'create' })
     localQueueShoppingSync(userId, { type: 'create', item: local })
-    setItemsAndCache((prev) => [local, ...prev])
+    setItemsAndCache((prev) => prev.map((item) => (item.id === tempId ? local : item)))
     return local
   }
 
-  const updateItem = async (id, updates) => {
+  const updateItem = async (id, updates, { optimistic = true } = {}) => {
     if (!userId) return null
+
+    const snapshot = items.find((item) => item.id === id)
+    if (optimistic && snapshot) {
+      setItemsAndCache((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, ...updates, updated_at: new Date().toISOString() } : item,
+        ),
+      )
+    }
 
     if (canReachCloud) {
       const { data, error: err } = await supabase
@@ -255,7 +288,12 @@ export function useShoppingList() {
         setItemsAndCache((prev) => prev.map((item) => (item.id === id ? data : item)))
         return data
       }
-      if (!isNetworkError(err)) throw new Error(formatShoppingError(err))
+      if (!isNetworkError(err)) {
+        if (optimistic && snapshot) {
+          setItemsAndCache((prev) => prev.map((item) => (item.id === id ? snapshot : item)))
+        }
+        throw new Error(formatShoppingError(err))
+      }
     }
 
     const local = localUpdateShoppingItem(userId, id, { ...updates, _pendingSync: true, _syncState: 'update' })
@@ -266,10 +304,16 @@ export function useShoppingList() {
 
   const deleteItem = async (id) => {
     if (!userId) return
+    const snapshot = items
+    setItemsAndCache((prev) => prev.filter((item) => item.id !== id))
+
     if (canReachCloud) {
       const { error: err } = await supabase.from('shopping_items').delete().eq('id', id).eq('user_id', userId)
       if (err) {
-        if (!isNetworkError(err)) throw new Error(formatShoppingError(err))
+        if (!isNetworkError(err)) {
+          setItemsAndCache(snapshot)
+          throw new Error(formatShoppingError(err))
+        }
         localQueueShoppingSync(userId, { type: 'delete', id })
         localDeleteShoppingItem(userId, id)
       }
@@ -277,10 +321,11 @@ export function useShoppingList() {
       localQueueShoppingSync(userId, { type: 'delete', id })
       localDeleteShoppingItem(userId, id)
     }
-    setItemsAndCache((prev) => prev.filter((item) => item.id !== id))
   }
 
-  const toggleItem = (item) => updateItem(item.id, { checked: !item.checked })
+  const toggleItem = (item) => {
+    void updateItem(item.id, { checked: !item.checked })
+  }
 
   const deleteChecked = async () => {
     const checked = items.filter((item) => item.checked)

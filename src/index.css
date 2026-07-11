@@ -103,6 +103,27 @@
       0 16px 40px var(--theme-shadow);
   }
 
+  .shopping-item {
+    border-radius: 1rem;
+    border: 1px solid var(--theme-border);
+    background: color-mix(in srgb, var(--theme-card) 96%, transparent);
+    padding: 0.75rem;
+    box-shadow: 0 1px 2px var(--theme-shadow), 0 4px 16px color-mix(in srgb, var(--theme-shadow) 40%, transparent);
+    transition: box-shadow 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+  }
+
+  .shopping-item--done {
+    opacity: 0.72;
+    background: var(--theme-input);
+    box-shadow: none;
+  }
+
+  .shopping-add-bar {
+    position: sticky;
+    top: 0.5rem;
+    z-index: 10;
+  }
+
   .premium-panel {
     @apply rounded-3xl border backdrop-blur-2xl;
     background: color-mix(in srgb, var(--theme-card) 92%, transparent);

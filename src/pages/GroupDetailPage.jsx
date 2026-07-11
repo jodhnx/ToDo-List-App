@@ -24,6 +24,7 @@ import Modal from '../components/ui/Modal'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import { checkSharedTaskReminders } from '../lib/notifications'
+import { useGroupShopping } from '../hooks/useGroupShopping'
 
 const filterTabs = [
   { id: 'all', label: 'Alle' },
@@ -60,20 +61,30 @@ export default function GroupDetailPage() {
   const { toast } = useToast()
   const navigate = useNavigate()
 
+  const shoppingApi = useMemo(
+    () => ({ fetchShoppingItems, createShoppingItem, updateShoppingItem, deleteShoppingItem }),
+    [fetchShoppingItems, createShoppingItem, updateShoppingItem, deleteShoppingItem],
+  )
+
+  const {
+    items: shoppingItems,
+    unavailable: shoppingUnavailable,
+    createItem: createGroupShoppingOptimistic,
+    toggleItem: toggleGroupShoppingOptimistic,
+    removeItem: removeGroupShoppingOptimistic,
+  } = useGroupShopping(groupId, user?.id, shoppingApi)
+
   const group = groups.find((g) => g.id === groupId)
   const { Icon } = getGroupIcon(group?.icon)
 
   const [members, setMembers] = useState([])
   const [tasks, setTasks] = useState([])
-  const [shoppingItems, setShoppingItems] = useState([])
   const [activity, setActivity] = useState([])
   const [filter, setFilter] = useState('all')
   const [inviteOpen, setInviteOpen] = useState(false)
   const [tab, setTab] = useState('tasks')
   const [commentsTaskId, setCommentsTaskId] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [shoppingSubmitting, setShoppingSubmitting] = useState(false)
-  const [shoppingUnavailable, setShoppingUnavailable] = useState(false)
   const [removeTarget, setRemoveTarget] = useState(null)
   const [deleteTaskTarget, setDeleteTaskTarget] = useState(null)
   const [taskFormOpen, setTaskFormOpen] = useState(false)
@@ -122,20 +133,10 @@ export default function GroupDetailPage() {
       if (membersResult.status === 'fulfilled') setMembers(membersResult.value)
       if (tasksResult.status === 'fulfilled') setTasks(tasksResult.value)
       if (activityResult.status === 'fulfilled') setActivity(activityResult.value)
-
-      try {
-        const shopping = await fetchShoppingItems(groupId)
-        setShoppingItems(shopping)
-        setShoppingUnavailable(false)
-      } catch (err) {
-        console.warn('Gemeinsame Einkaufsliste nicht verfügbar:', err)
-        setShoppingItems([])
-        setShoppingUnavailable(true)
-      }
     } finally {
       loadingRef.current = false
     }
-  }, [groupId, fetchMembers, fetchTasks, fetchActivity, fetchShoppingItems])
+  }, [groupId, fetchMembers, fetchTasks, fetchActivity])
 
   const scheduleLoad = useCallback(
     (delay = 350) => {
@@ -171,11 +172,6 @@ export default function GroupDetailPage() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${groupId}` },
-        () => scheduleLoad(),
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'group_shopping_items', filter: `group_id=eq.${groupId}` },
         () => scheduleLoad(),
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => scheduleLoad())
@@ -262,45 +258,26 @@ export default function GroupDetailPage() {
   }
 
   const handleCreateShoppingItem = async (payload) => {
-    setShoppingSubmitting(true)
     try {
-      await createShoppingItem({
-        ...payload,
-        group_id: groupId,
-        created_by: user.id,
-      })
-      toast('Produkt zur Familienliste hinzugefügt', 'success')
-      await load()
+      const result = await createGroupShoppingOptimistic(payload)
+      if (result?.duplicate) {
+        toast('Dieses Produkt steht schon auf der Familienliste', 'info')
+        return false
+      }
       return true
     } catch (e) {
-      toast(e.message || 'Produkt konnte nicht hinzugefügt werden', 'error')
+      toast(e.message || 'Produkt konnte nicht hinzugefügt werden. Bitte erneut versuchen.', 'error')
       return false
-    } finally {
-      setShoppingSubmitting(false)
     }
   }
 
-  const handleToggleShoppingItem = async (item) => {
-    const nextChecked = !item.checked
-    try {
-      await updateShoppingItem(item.id, {
-        checked: nextChecked,
-        checked_by: nextChecked ? user.id : null,
-      })
-      await load()
-    } catch (e) {
-      toast(e.message || 'Produkt konnte nicht aktualisiert werden', 'error')
-    }
+  const handleToggleShoppingItem = (item) => {
+    toggleGroupShoppingOptimistic(item)
   }
 
-  const handleDeleteShoppingItem = async (item) => {
-    try {
-      await deleteShoppingItem(item.id)
-      toast('Produkt entfernt', 'info')
-      await load()
-    } catch (e) {
-      toast(e.message || 'Produkt konnte nicht gelöscht werden', 'error')
-    }
+  const handleDeleteShoppingItem = (item) => {
+    removeGroupShoppingOptimistic(item)
+    toast('Produkt entfernt', 'info')
   }
 
   const handleRemove = async () => {
@@ -494,7 +471,6 @@ export default function GroupDetailPage() {
         ) : (
           <GroupShoppingList
             items={shoppingItems}
-            submitting={shoppingSubmitting}
             onCreate={handleCreateShoppingItem}
             onToggle={handleToggleShoppingItem}
             onDelete={handleDeleteShoppingItem}

@@ -6,6 +6,7 @@ const TODO_SYNC_PREFIX = 'focus_todo_sync_'
 const SHOPPING_SYNC_PREFIX = 'focus_shopping_sync_'
 const SHOPPING_FAVORITES_PREFIX = 'focus_shopping_favorites_'
 const SHOPPING_FAVORITES_SYNC_PREFIX = 'focus_shopping_favorites_sync_'
+const GROUP_SHOPPING_PREFIX = 'focus_group_shopping_'
 
 /** Einfacher Hash für lokale Passwörter (nur Offline-Demo) */
 function hashPassword(password) {
@@ -304,4 +305,16 @@ export function localQueueShoppingFavoriteSync(userId, op) {
 
 export function localClearShoppingFavoritesSyncQueue(userId) {
   localStorage.removeItem(shoppingFavoritesSyncKey(userId))
+}
+
+function groupShoppingKey(groupId) {
+  return `${GROUP_SHOPPING_PREFIX}${groupId}`
+}
+
+export function localGetGroupShoppingItems(groupId) {
+  return readJSON(groupShoppingKey(groupId), [])
+}
+
+export function localSaveGroupShoppingItems(groupId, items) {
+  writeJSON(groupShoppingKey(groupId), items)
 }
