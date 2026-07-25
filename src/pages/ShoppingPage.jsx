@@ -12,10 +12,12 @@ import Fab from '../components/ui/Fab'
 import ShoppingQuickPanel from '../components/shopping/ShoppingQuickPanel'
 import ShoppingItemRow from '../components/shopping/ShoppingItemRow'
 import ShoppingAddForm from '../components/shopping/ShoppingAddForm'
+import ShoppingEditModal from '../components/shopping/ShoppingEditModal'
 import {
   DEFAULT_SHOPPING_CATEGORY,
   hasOpenShoppingDuplicate,
   inferShoppingCategory,
+  normalizeShoppingName,
 } from '../lib/shoppingCatalog'
 
 function emptyForm() {
@@ -29,7 +31,7 @@ function appendText(current, next) {
 }
 
 export default function ShoppingPage() {
-  const { items, loading, error, createItem, deleteItem, toggleItem, deleteChecked } = useShoppingList()
+  const { items, loading, error, createItem, updateItem, deleteItem, toggleItem, deleteChecked } = useShoppingList()
   const {
     favorites,
     groupedFavorites,
@@ -45,6 +47,7 @@ export default function ShoppingPage() {
   const [showChecked, setShowChecked] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [editItem, setEditItem] = useState(null)
 
   const stats = useMemo(
     () => ({
@@ -172,6 +175,20 @@ export default function ShoppingPage() {
     toast(`${count} erledigte Produkte entfernt`, 'success')
   }
 
+  const handleEditSave = async (updates) => {
+    if (!editItem) return
+    const duplicate = items.some(
+      (entry) =>
+        entry.id !== editItem.id &&
+        !entry.checked &&
+        normalizeShoppingName(entry.name) === normalizeShoppingName(updates.name) &&
+        (entry.category || DEFAULT_SHOPPING_CATEGORY) === (updates.category || DEFAULT_SHOPPING_CATEGORY),
+    )
+    if (duplicate) throw new Error('Dieses Produkt steht schon auf der Liste')
+    await updateItem(editItem.id, updates)
+    toast('Produkt aktualisiert', 'success')
+  }
+
   const visibleCount = openItems.length + (showChecked ? doneItems.length : 0)
 
   return (
@@ -272,6 +289,7 @@ export default function ShoppingPage() {
                       item={item}
                       onToggle={toggleItem}
                       onDelete={() => deleteItem(item.id)}
+                      onEdit={setEditItem}
                       onFavorite={toggleFavorite}
                       isFavorite={isFavorite(item.name, item.category)}
                     />
@@ -295,6 +313,7 @@ export default function ShoppingPage() {
                       item={item}
                       onToggle={toggleItem}
                       onDelete={() => deleteItem(item.id)}
+                      onEdit={setEditItem}
                       onFavorite={toggleFavorite}
                       isFavorite={isFavorite(item.name, item.category)}
                     />
@@ -325,6 +344,13 @@ export default function ShoppingPage() {
           onClose={resetAndClose}
         />
       </Modal>
+
+      <ShoppingEditModal
+        open={!!editItem}
+        item={editItem}
+        onClose={() => setEditItem(null)}
+        onSave={handleEditSave}
+      />
 
       <Fab label="Produkt hinzufügen" showOnDesktop onClick={() => setModalOpen(true)} />
     </div>

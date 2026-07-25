@@ -19,6 +19,7 @@ export function useGroupShopping(groupId, userId, { fetchShoppingItems, createSh
   const [loading, setLoading] = useState(true)
   const [unavailable, setUnavailable] = useState(false)
   const pendingToggleRef = useRef(new Set())
+  const pendingUpdateRef = useRef(new Set())
 
   const setItemsAndCache = useCallback(
     (updater) => {
@@ -81,7 +82,7 @@ export function useGroupShopping(groupId, userId, { fetchShoppingItems, createSh
               return [payload.new, ...withoutOptimistic]
             })
           } else if (payload.eventType === 'UPDATE') {
-            if (pendingToggleRef.current.has(payload.new.id)) return
+            if (pendingToggleRef.current.has(payload.new.id) || pendingUpdateRef.current.has(payload.new.id)) return
             setItemsAndCache((prev) => prev.map((item) => (item.id === payload.new.id ? { ...item, ...payload.new } : item)))
           } else if (payload.eventType === 'DELETE') {
             setItemsAndCache((prev) => prev.filter((item) => item.id !== payload.old.id))
@@ -169,6 +170,49 @@ export function useGroupShopping(groupId, userId, { fetchShoppingItems, createSh
     [userId, updateShoppingItem, setItemsAndCache],
   )
 
+  const updateItem = useCallback(
+    async (item, updates) => {
+      if (!item?.id) throw new Error('Produkt nicht gefunden')
+      const row = {
+        name: String(updates.name || '').trim(),
+        quantity: String(updates.quantity || '1').trim() || '1',
+        category: updates.category || DEFAULT_SHOPPING_CATEGORY,
+      }
+      if (!row.name) throw new Error('Bitte Produktname eingeben')
+
+      const duplicate = items.some(
+        (entry) =>
+          entry.id !== item.id &&
+          !entry.checked &&
+          entry.name?.toLowerCase() === row.name.toLowerCase() &&
+          (entry.category || DEFAULT_SHOPPING_CATEGORY) === row.category,
+      )
+      if (duplicate) throw new Error('Dieses Produkt steht schon auf der Familienliste')
+
+      const snapshot = { ...item }
+      pendingUpdateRef.current.add(item.id)
+      setItemsAndCache((prev) =>
+        prev.map((entry) =>
+          entry.id === item.id
+            ? { ...entry, ...row, updated_at: new Date().toISOString() }
+            : entry,
+        ),
+      )
+
+      try {
+        const data = await updateShoppingItem(item.id, row)
+        setItemsAndCache((prev) => prev.map((entry) => (entry.id === item.id ? { ...entry, ...data } : entry)))
+        return data
+      } catch (err) {
+        setItemsAndCache((prev) => prev.map((entry) => (entry.id === item.id ? snapshot : entry)))
+        throw err
+      } finally {
+        pendingUpdateRef.current.delete(item.id)
+      }
+    },
+    [items, updateShoppingItem, setItemsAndCache],
+  )
+
   const removeItem = useCallback(
     (item) => {
       if (!item?.id) return
@@ -187,6 +231,7 @@ export function useGroupShopping(groupId, userId, { fetchShoppingItems, createSh
     loading,
     unavailable,
     createItem,
+    updateItem,
     toggleItem,
     removeItem,
     refetch: fetchItems,

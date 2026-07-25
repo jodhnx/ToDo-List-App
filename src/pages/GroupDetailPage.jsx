@@ -70,6 +70,7 @@ export default function GroupDetailPage() {
     items: shoppingItems,
     unavailable: shoppingUnavailable,
     createItem: createGroupShoppingOptimistic,
+    updateItem: updateGroupShoppingOptimistic,
     toggleItem: toggleGroupShoppingOptimistic,
     removeItem: removeGroupShoppingOptimistic,
   } = useGroupShopping(groupId, user?.id, shoppingApi)
@@ -107,11 +108,6 @@ export default function GroupDetailPage() {
     ? resolveDisplayRole(myMembership, group?.owner_id || group?.created_by)
     : resolveDisplayRole({ role: group?.my_role, user_id: user?.id }, group?.owner_id || group?.created_by)
   const canManageGroup = myRole === 'owner'
-
-  const activityCount = useMemo(() => {
-    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-    return activity.filter((entry) => new Date(entry.at).getTime() >= weekAgo).length
-  }, [activity])
 
   useEffect(() => {
     setGroupName(group?.name || '')
@@ -280,6 +276,15 @@ export default function GroupDetailPage() {
     toast('Produkt entfernt', 'info')
   }
 
+  const handleUpdateShoppingItem = async (item, updates) => {
+    try {
+      await updateGroupShoppingOptimistic(item, updates)
+    } catch (e) {
+      toast(e.message || 'Produkt konnte nicht gespeichert werden', 'error')
+      throw e
+    }
+  }
+
   const handleRemove = async () => {
     if (!removeTarget || busyAction) return
     setBusyAction('remove-member')
@@ -365,14 +370,11 @@ export default function GroupDetailPage() {
   }
 
   return (
-    <div className="space-y-5 pb-4">
+    <div className="space-y-3 pb-4">
       <GroupFamilyDashboard
         group={group}
         groupIcon={Icon}
         members={members}
-        tasks={tasks}
-        shoppingItems={shoppingItems}
-        activityCount={activityCount}
         myRole={myRole}
         canManageGroup={canManageGroup}
         onInvite={() => setInviteOpen(true)}
@@ -393,16 +395,16 @@ export default function GroupDetailPage() {
 
       {tab === 'tasks' && (
         <>
-          <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-card)] p-3 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                <Filter className="h-4 w-4 shrink-0 text-muted" />
+          <div className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-card)] p-2">
+            <div className="flex items-center gap-2">
+              <div className="flex flex-1 items-center gap-1 overflow-x-auto">
+                <Filter className="h-3.5 w-3.5 shrink-0 text-muted" />
                 {filterTabs.map((f) => (
                   <button
                     key={f.id}
                     type="button"
                     onClick={() => setFilter(f.id)}
-                    className={`min-h-10 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
+                    className={`min-h-8 shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
                       filter === f.id
                         ? 'bg-[var(--theme-accentSoft)] text-[var(--theme-accent)]'
                         : 'bg-[var(--theme-input)] text-muted'
@@ -412,13 +414,13 @@ export default function GroupDetailPage() {
                   </button>
                 ))}
               </div>
-              <Button type="button" size="sm" onClick={() => setTaskFormOpen(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Aufgabe
+              <Button type="button" size="sm" onClick={() => setTaskFormOpen(true)} className="h-8 gap-1 px-2.5 text-xs">
+                <Plus className="h-3.5 w-3.5" />
+                Neu
               </Button>
             </div>
           </div>
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             <AnimatePresence mode="popLayout">
               {filtered.map((task) => (
                 <SharedTaskItem
@@ -436,11 +438,9 @@ export default function GroupDetailPage() {
             </AnimatePresence>
           </ul>
           {filtered.length === 0 && (
-            <Card className="text-center">
-              <p className="font-medium text-primary">Hier ist gerade nichts zu tun.</p>
-              <p className="mt-1 text-sm text-muted">
-                Wähle einen anderen Filter oder füge eine neue Aufgabe für die Familie hinzu.
-              </p>
+            <Card className="py-6 text-center">
+              <p className="text-sm font-medium text-primary">Nichts zu tun.</p>
+              <p className="mt-0.5 text-xs text-muted">Filter ändern oder neue Aufgabe hinzufügen.</p>
             </Card>
           )}
         </>
@@ -474,6 +474,7 @@ export default function GroupDetailPage() {
             onCreate={handleCreateShoppingItem}
             onToggle={handleToggleShoppingItem}
             onDelete={handleDeleteShoppingItem}
+            onUpdate={handleUpdateShoppingItem}
           />
         ))}
 
