@@ -25,9 +25,7 @@ const settingTabs = [
   { id: 'profile', label: 'Profil' },
   { id: 'design', label: 'Design' },
   { id: 'notifications', label: 'Benachrichtigungen' },
-  { id: 'ai', label: 'KI' },
-  { id: 'security', label: 'Sicherheit' },
-  { id: 'creator', label: 'Über diese App' },
+  { id: 'app', label: 'App' },
 ]
 
 export default function SettingsPage() {
@@ -46,7 +44,6 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState('')
   const [perm, setPerm] = useState(() => getNotificationPermission())
   const [online, setOnline] = useState(isBrowserOnline())
-  const [swReady, setSwReady] = useState(false)
 
   useEffect(() => setName(displayName), [displayName])
 
@@ -55,7 +52,7 @@ export default function SettingsPage() {
     const off = () => setOnline(false)
     window.addEventListener('online', on)
     window.addEventListener('offline', off)
-    registerOfflineSupport().then(setSwReady)
+    void registerOfflineSupport()
     return () => {
       window.removeEventListener('online', on)
       window.removeEventListener('offline', off)
@@ -110,33 +107,13 @@ export default function SettingsPage() {
               <Button type="submit">Speichern</Button>
             </form>
           </Section>
-          <Section icon={User} title="Einfacher Modus" description="Größere Schriften, größere Buttons und klarere Abstände">
-            <div className="space-y-3">
-              <Toggle
-                label="Einfachen Modus verwenden"
-                checked={!!prefs.simpleMode}
-                onChange={(v) => updatePrefs({ simpleMode: v })}
-              />
-              <p className="text-sm text-muted">
-                Ideal für Familienmitglieder, die eine ruhigere Ansicht mit großen Bedienflächen möchten.
-              </p>
-            </div>
-          </Section>
         </Card>
       )}
 
       {tab === 'design' && (
         <Card className="space-y-6">
-          <Section icon={Palette} title="Design & Farben" description="App Design, Theme und Darstellung auswählen">
+          <Section icon={Palette} title="Design" description="Farben und Darstellung">
             <div className="space-y-4">
-              <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-accentSoft)] p-4">
-                <p className="text-sm font-medium text-primary">Theme auswählen</p>
-                <p className="mt-1 text-sm text-muted">
-                  Das Design wird lokal gespeichert und bei deinem Konto synchronisiert. Auf einem anderen Gerät wird
-                  es nach der Anmeldung automatisch geladen.
-                </p>
-              </div>
-
               <div className="grid gap-3 sm:grid-cols-2">
                 {APP_THEMES.map((theme) => (
                   <ThemeCard
@@ -148,49 +125,59 @@ export default function SettingsPage() {
                       const result = await setTheme(theme.id)
                       if (result?.error) {
                         toast(
-                          'Design lokal gespeichert. Für Konto-Sync bitte die neue Theme-Migration in Supabase ausführen.',
+                          'Design lokal gespeichert. Für Konto-Sync bitte die Theme-Migration in Supabase ausführen.',
                           'info',
                         )
                       } else {
-                        toast(`Design "${theme.name}" gespeichert`, 'success')
+                        toast(`Design „${theme.name}“ gespeichert`, 'success')
                       }
                     }}
                   />
                 ))}
               </div>
-
-              <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-input)] p-4">
-                <p className="text-sm font-medium text-primary">Seniorenfreundlich & High Contrast</p>
-                <p className="mt-1 text-sm text-muted">
-                  Diese Designs vergrößern zusätzlich Schrift, Bedienflächen und Rahmen für eine besonders klare
-                  Bedienung.
-                </p>
-              </div>
             </div>
+          </Section>
+          <Section icon={User} title="Einfacher Modus" description="Größere Schriften und Buttons">
+            <Toggle
+              label="Einfachen Modus verwenden"
+              checked={!!prefs.simpleMode}
+              onChange={(v) => updatePrefs({ simpleMode: v })}
+            />
           </Section>
         </Card>
       )}
 
       {tab === 'notifications' && (
         <Card>
-          <Section icon={Bell} title="Push-Benachrichtigungen" description="Erinnerungen für Aufgaben">
+          <Section icon={Bell} title="Erinnerungen" description="Push und Hinweise für Aufgaben">
             <div className="space-y-4">
               {!isNotificationSupported() ? (
                 <p className="text-sm text-muted">Nicht unterstützt in diesem Browser.</p>
               ) : (
                 <>
-                  <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="flex items-center justify-between rounded-xl border border-[var(--theme-border)] bg-[var(--theme-input)] p-4">
                     <div>
                       <p className="font-medium text-primary">Status</p>
                       <p className="text-xs capitalize text-muted">{perm}</p>
                     </div>
-                    {perm !== 'granted' && <Button size="sm" onClick={enableNotifications}>Aktivieren</Button>}
+                    {perm !== 'granted' && (
+                      <Button size="sm" onClick={enableNotifications}>
+                        Aktivieren
+                      </Button>
+                    )}
                   </div>
-                  <Toggle label="Aktiv" checked={prefs.notifications} onChange={(v) => updatePrefs({ notifications: v })} />
+                  <Toggle label="Erinnerungen aktiv" checked={prefs.notifications} onChange={(v) => updatePrefs({ notifications: v })} />
                   <Toggle label="Heute fällig" checked={prefs.notifyToday} onChange={(v) => updatePrefs({ notifyToday: v })} />
                   <Toggle label="Überfällig" checked={prefs.notifyOverdue} onChange={(v) => updatePrefs({ notifyOverdue: v })} />
                   <Toggle label="Morgen-Briefing" checked={prefs.notifyMorning} onChange={(v) => updatePrefs({ notifyMorning: v })} />
-                  <Input label="Briefing-Uhrzeit" type="number" min={6} max={11} value={prefs.morningHour} onChange={(e) => updatePrefs({ morningHour: Number(e.target.value) })} />
+                  <Input
+                    label="Briefing-Uhrzeit"
+                    type="number"
+                    min={6}
+                    max={11}
+                    value={prefs.morningHour}
+                    onChange={(e) => updatePrefs({ morningHour: Number(e.target.value) })}
+                  />
                 </>
               )}
             </div>
@@ -198,36 +185,38 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      {tab === 'ai' && (
-        <Card>
-          <Section icon={Sparkles} title="KI" description="OpenAI API-Key optional">
-            <div className="space-y-4">
-              <Input label="API-Key" type="password" value={aiKey} onChange={(e) => setAiKey(e.target.value)} placeholder="sk-…" />
-              <p className="text-xs text-muted">Ohne Key: lokaler Tagesplan & Vorschläge. Mit Key: OpenAI.</p>
-              <Button onClick={() => { setAiApiKey(aiKey); toast('Gespeichert', 'success') }}>Speichern</Button>
+      {tab === 'app' && (
+        <Card className="space-y-6">
+          <Section icon={Code2} title="Version" description="Über diese App">
+            <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-input)] p-4">
+              <p className="text-sm font-medium text-primary">App-Version</p>
+              <p className="mt-1 text-2xl font-bold text-[var(--theme-accent)]">v{APP_VERSION}</p>
+              <p className="mt-1 text-xs text-muted">Basis: v{APP_BASE_VERSION}</p>
+              <p className="mt-4 text-sm font-medium text-primary">Zuletzt geändert</p>
+              <ul className="mt-2 space-y-1.5 text-sm text-muted">
+                {APP_CHANGELOG.map((entry) => (
+                  <li key={entry}>· {entry}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="mt-4 rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-accentSoft)] p-4">
+              <p className="text-sm text-muted">Erstellt von</p>
+              <p className="mt-1 text-lg font-bold text-primary">Benjamin Streitriegl</p>
             </div>
           </Section>
-        </Card>
-      )}
 
-      {tab === 'security' && (
-        <Card className="space-y-6">
-          <Section icon={Download} title="App installieren" description="Focus wie eine native App öffnen">
-            <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-              <div>
-                <p className="font-medium text-primary">
-                  {installed ? 'Focus ist als App installiert' : 'Focus zum Home-Bildschirm hinzufügen'}
-                </p>
-                <p className="mt-1 text-sm text-muted">
-                  Auf iPhone: In Safari teilen → „Zum Home-Bildschirm“. Danach startet Focus fullscreen ohne URL-Bar
-                  und ohne Safari-Bottom-Bar.
-                </p>
-              </div>
+          <Section icon={Download} title="App installieren" description="Focus auf dem Home-Bildschirm">
+            <div className="space-y-3">
+              <p className="text-sm text-muted">
+                {installed
+                  ? 'Focus ist als App installiert.'
+                  : 'Auf dem iPhone: Safari → Teilen → „Zum Home-Bildschirm“.'}
+              </p>
               {canInstall && (
                 <Button
                   onClick={async () => {
                     const accepted = await install()
-                    toast(accepted ? 'Installation gestartet' : 'Installation abgebrochen', accepted ? 'success' : 'info')
+                    toast(accepted ? 'Installation gestartet' : 'Abgebrochen', accepted ? 'success' : 'info')
                   }}
                 >
                   App installieren
@@ -236,36 +225,22 @@ export default function SettingsPage() {
             </div>
           </Section>
 
-          <Section icon={Shield} title="Offline & Datenschutz" description="Aufgaben bleiben auf diesem Gerät gespeichert">
+          <Section icon={Shield} title="Datenschutz & Offline" description="Deine Daten bleiben sicher">
             <div className="space-y-4">
-              <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex items-center gap-3">
-                  {online ? <Wifi className="h-5 w-5 text-emerald-400" /> : <WifiOff className="h-5 w-5 text-amber-400" />}
-                  <div>
-                    <p className="font-medium text-primary">{online ? 'Online' : 'Offline'}</p>
-                    <p className="text-xs text-muted">
-                      {mode === 'local'
-                        ? 'Nur lokaler Modus — alles bleibt auf dem Gerät'
-                        : online
-                          ? 'Cloud-Sync aktiv · Cache als Backup'
-                          : 'Kein Netz — du arbeitest mit dem lokalen Cache'}
-                    </p>
-                  </div>
+              <div className="flex items-center gap-3 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-input)] p-4">
+                {online ? <Wifi className="h-5 w-5 text-emerald-400" /> : <WifiOff className="h-5 w-5 text-amber-400" />}
+                <div>
+                  <p className="font-medium text-primary">{online ? 'Online' : 'Offline'}</p>
+                  <p className="text-xs text-muted">
+                    {mode === 'local' ? 'Nur auf diesem Gerät' : online ? 'Cloud-Sync aktiv' : 'Lokaler Cache'}
+                  </p>
                 </div>
               </div>
-
               <Toggle
                 label="Offline-Cache nutzen"
                 checked={prefs.offlineCache !== false}
                 onChange={(v) => updatePrefs({ offlineCache: v })}
               />
-
-              <p className="text-xs text-muted">
-                {swReady
-                  ? 'App-Oberfläche ist für Offline-Nutzung zwischengespeichert. Aufgaben werden automatisch lokal gesichert.'
-                  : 'Offline-Modus: Aufgaben werden in localStorage gespeichert (funktioniert auch ohne Service Worker).'}
-              </p>
-
               <div className="flex flex-wrap gap-2">
                 <Button variant="secondary" size="sm" onClick={syncCache}>
                   Cache aktualisieren
@@ -279,13 +254,29 @@ export default function SettingsPage() {
                     toast('App-Cache geleert', 'info')
                   }}
                 >
-                  App-Cache leeren
+                  Cache leeren
                 </Button>
               </div>
+            </div>
+          </Section>
 
-              <p className="text-xs text-muted">
-                Hinweis: KI mit OpenAI und Cloud-Login benötigen Internet. Tagesplan und Aufgaben ohne API-Key funktionieren offline.
-              </p>
+          <Section icon={Sparkles} title="KI (optional)" description="OpenAI-Schlüssel für erweiterte Vorschläge">
+            <div className="space-y-3">
+              <Input
+                label="API-Key"
+                type="password"
+                value={aiKey}
+                onChange={(e) => setAiKey(e.target.value)}
+                placeholder="sk-…"
+              />
+              <Button
+                onClick={() => {
+                  setAiApiKey(aiKey)
+                  toast('Gespeichert', 'success')
+                }}
+              >
+                Speichern
+              </Button>
             </div>
           </Section>
 
@@ -298,11 +289,10 @@ export default function SettingsPage() {
                   if (r.error) toast(r.error.message, 'error')
                   else toast('Link gesendet', 'success')
                 }}
-                className="mb-6 space-y-3"
+                className="mb-4 space-y-3"
               >
-                <p className="text-sm text-muted">Passwort zurücksetzen per E-Mail</p>
                 <Button type="submit" variant="secondary">
-                  Reset-Link senden
+                  Passwort-Reset per E-Mail
                 </Button>
               </form>
               <form
@@ -328,34 +318,6 @@ export default function SettingsPage() {
               </form>
             </Section>
           )}
-        </Card>
-      )}
-
-      {tab === 'creator' && (
-        <Card>
-          <Section icon={Code2} title="Creator" description="Über diese App">
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-5">
-                <p className="text-sm text-muted">Diese App wurde erstellt von</p>
-                <h2 className="mt-1 text-2xl font-bold text-primary">Benjamin Streitriegl</h2>
-                <p className="mt-3 text-sm leading-relaxed text-muted">
-                  Focus wurde entwickelt, um Aufgaben, Familienorganisation und Einkaufslisten einfach, modern und
-                  übersichtlich an einem Ort zu verwalten.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-sm font-medium text-primary">App-Version</p>
-                <p className="mt-1 text-2xl font-bold text-indigo-300">v{APP_VERSION}</p>
-                <p className="mt-1 text-xs text-muted">Startwert: v{APP_BASE_VERSION}</p>
-                <p className="mt-4 text-sm font-medium text-primary">Zuletzt geändert</p>
-                <ul className="mt-2 space-y-1.5 text-sm text-muted">
-                  {APP_CHANGELOG.map((entry) => (
-                    <li key={entry}>- {entry}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </Section>
         </Card>
       )}
     </div>

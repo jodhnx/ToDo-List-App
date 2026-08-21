@@ -172,11 +172,38 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="space-y-3 pb-4">
       <header className="page-header">
         <h1>Aufgaben</h1>
-        <p>{loading ? 'Lädt…' : `${filtered.length} von ${todos.length} Aufgaben`}</p>
+        <p>{loading ? 'Lädt…' : `${filtered.length} Aufgaben`}</p>
       </header>
+
+      <div className="flex gap-1 overflow-x-auto rounded-xl border border-[var(--theme-border)] bg-[var(--theme-input)] p-0.5">
+        {[
+          { id: 'all', label: 'Alle', apply: () => { setStatusFilter('all'); setQuickFilter('all') } },
+          { id: 'today', label: 'Heute', apply: () => { setStatusFilter('all'); setQuickFilter('today') } },
+          { id: 'open', label: 'Offen', apply: () => { setStatusFilter('open'); setQuickFilter('all') } },
+          { id: 'done', label: 'Erledigt', apply: () => { setStatusFilter('done'); setQuickFilter('all') } },
+        ].map((chip) => {
+          const active =
+            (chip.id === 'today' && quickFilter === 'today') ||
+            (chip.id === 'open' && statusFilter === 'open') ||
+            (chip.id === 'done' && statusFilter === 'done') ||
+            (chip.id === 'all' && statusFilter === 'all' && quickFilter === 'all')
+          return (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={chip.apply}
+              className={`min-h-9 shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                active ? 'bg-[var(--theme-card)] text-[var(--theme-accent)] shadow-sm' : 'text-muted'
+              }`}
+            >
+              {chip.label}
+            </button>
+          )
+        })}
+      </div>
 
       <QuickFilterBar value={quickFilter} onChange={setQuickFilter} />
 

@@ -156,10 +156,10 @@ export default function HomePage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <header>
-        <p className="text-sm text-muted">{greeting()},</p>
-        <h1 className="text-2xl font-bold text-primary sm:text-3xl">{displayName}</h1>
-        <p className="mt-1 text-base text-muted">Tippe auf eine Karte, um die passende Aufgabenliste zu sehen.</p>
+      <header className="page-header">
+        <p className="text-sm text-muted">{greeting()}, {displayName}</p>
+        <h1>Home</h1>
+        <p>Heute wichtig — Aufgaben und Überblick auf einen Blick</p>
       </header>
 
       <StatsBar

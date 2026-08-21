@@ -155,6 +155,18 @@
     color: var(--theme-muted);
   }
 
+  .page-view {
+    min-width: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .page-view,
+    .page-view * {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
   @media (min-width: 640px) {
     .page-header p {
       font-size: 1rem;

@@ -6,17 +6,16 @@ import { TodosProvider, useTodosContext } from '../../context/TodosContext'
 import { GroupsProvider, useGroups } from '../../context/GroupsContext'
 import { useNotifications } from '../../hooks/useNotifications'
 import UsernameGate from './UsernameGate'
-import PageTransition from './PageTransition'
 import { getSettings } from '../../lib/settings'
 import { useEffect, useState } from 'react'
 import { useTheme } from '../../context/ThemeContext'
 
 const navItems = [
-  { to: '/app', end: true, icon: LayoutDashboard, label: 'Übersicht' },
+  { to: '/app', end: true, icon: LayoutDashboard, label: 'Home' },
   { to: '/app/tasks', icon: ListTodo, label: 'Aufgaben' },
   { to: '/app/shopping', icon: ShoppingBasket, label: 'Einkauf' },
   { to: '/app/family', icon: Users, label: 'Familie' },
-  { to: '/app/settings', icon: Settings, label: 'Einstellungen', mobileLabel: 'Einst.' },
+  { to: '/app/settings', icon: Settings, label: 'Einstellungen', mobileLabel: 'Mehr' },
 ]
 
 function FamilyNavBadge() {
@@ -98,9 +97,7 @@ function AppShellInner() {
 
         <main className={`min-w-0 flex-1 pb-28 lg:pb-0 ${largeMode ? 'space-y-6' : ''}`}>
           <UsernameGate>
-            <PageTransition>
-              <Outlet />
-            </PageTransition>
+            <Outlet />
           </UsernameGate>
         </main>
       </div>
