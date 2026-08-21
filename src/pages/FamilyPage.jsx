@@ -94,8 +94,8 @@ export default function FamilyPage() {
     <div className="space-y-6 pb-4">
       <div className="page-header flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1>Familie & Gruppen</h1>
-          <p>Erstelle deine Familie und teile Aufgaben mit anderen</p>
+          <h1>Familie</h1>
+          <p>Gemeinsame Aufgaben und Einkaufsliste für eure Familie</p>
           {syncing && groups.length > 0 && (
             <p className="mt-1 text-xs text-[var(--theme-accent)]">Synchronisiert im Hintergrund…</p>
           )}

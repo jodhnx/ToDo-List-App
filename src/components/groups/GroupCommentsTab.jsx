@@ -12,6 +12,7 @@ export default function GroupCommentsTab({
   addComment,
   fetchGroupComments,
   initialTaskId,
+  groupId,
 }) {
   const [selectedTaskId, setSelectedTaskId] = useState(tasks[0]?.id || '')
   const [feed, setFeed] = useState([])
@@ -46,12 +47,15 @@ export default function GroupCommentsTab({
 
   useEffect(() => {
     if (!supabase) return
+    const channelName = groupId ? `group-comments-${groupId}` : 'group-comments-feed'
     const channel = supabase
-      .channel('group-comments-feed')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => loadFeed())
+      .channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => {
+        void loadFeed()
+      })
       .subscribe()
     return () => supabase.removeChannel(channel)
-  }, [loadFeed])
+  }, [loadFeed, groupId])
 
   const selectedTask = tasks.find((t) => t.id === selectedTaskId)
 

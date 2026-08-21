@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { Filter, Trash2, Plus } from 'lucide-react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useGroups } from '../context/GroupsContext'
 import { useToast } from '../context/ToastContext'
@@ -25,6 +24,7 @@ import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import { checkSharedTaskReminders } from '../lib/notifications'
 import { useGroupShopping } from '../hooks/useGroupShopping'
+import { useGroupLive } from '../hooks/useGroupLive'
 
 const filterTabs = [
   { id: 'all', label: 'Alle' },
@@ -38,6 +38,7 @@ export default function GroupDetailPage() {
   const { user } = useAuth()
   const {
     groups,
+    loading: groupsLoading,
     fetchMembers,
     fetchTasks,
     createTask,
@@ -75,12 +76,37 @@ export default function GroupDetailPage() {
     removeItem: removeGroupShoppingOptimistic,
   } = useGroupShopping(groupId, user?.id, shoppingApi)
 
+  const liveApi = useMemo(
+    () => ({
+      fetchMembers,
+      fetchTasks,
+      fetchActivity,
+      createTask,
+      updateTask,
+      deleteTask,
+      removeMember,
+      setMemberRole,
+    }),
+    [fetchMembers, fetchTasks, fetchActivity, createTask, updateTask, deleteTask, removeMember, setMemberRole],
+  )
+
+  const {
+    members,
+    tasks,
+    activity,
+    loading: liveLoading,
+    error: liveError,
+    refreshActivity,
+    createTaskOptimistic,
+    updateTaskOptimistic,
+    deleteTaskOptimistic,
+    removeMemberOptimistic,
+    setRoleOptimistic,
+  } = useGroupLive(groupId, liveApi)
+
   const group = groups.find((g) => g.id === groupId)
   const { Icon } = getGroupIcon(group?.icon)
 
-  const [members, setMembers] = useState([])
-  const [tasks, setTasks] = useState([])
-  const [activity, setActivity] = useState([])
   const [filter, setFilter] = useState('all')
   const [inviteOpen, setInviteOpen] = useState(false)
   const [tab, setTab] = useState('tasks')
@@ -97,8 +123,6 @@ export default function GroupDetailPage() {
   const [deleteGroupOpen, setDeleteGroupOpen] = useState(false)
   const [savingGroup, setSavingGroup] = useState(false)
   const [busyAction, setBusyAction] = useState('')
-  const loadTimerRef = useRef(null)
-  const loadingRef = useRef(false)
 
   const myMembership = useMemo(
     () => members.find((m) => m.user_id === user?.id),
@@ -116,39 +140,6 @@ export default function GroupDetailPage() {
     setGroupAvatarUrl(group?.avatar_url || '')
   }, [group?.name, group?.icon, group?.description, group?.avatar_url])
 
-  const load = useCallback(async () => {
-    if (!groupId || loadingRef.current) return
-    loadingRef.current = true
-    try {
-      const [membersResult, tasksResult, activityResult] = await Promise.allSettled([
-        fetchMembers(groupId),
-        fetchTasks(groupId),
-        fetchActivity(groupId),
-      ])
-
-      if (membersResult.status === 'fulfilled') setMembers(membersResult.value)
-      if (tasksResult.status === 'fulfilled') setTasks(tasksResult.value)
-      if (activityResult.status === 'fulfilled') setActivity(activityResult.value)
-    } finally {
-      loadingRef.current = false
-    }
-  }, [groupId, fetchMembers, fetchTasks, fetchActivity])
-
-  const scheduleLoad = useCallback(
-    (delay = 350) => {
-      if (loadTimerRef.current) window.clearTimeout(loadTimerRef.current)
-      loadTimerRef.current = window.setTimeout(() => load(), delay)
-    },
-    [load],
-  )
-
-  useEffect(() => {
-    load()
-    return () => {
-      if (loadTimerRef.current) window.clearTimeout(loadTimerRef.current)
-    }
-  }, [load])
-
   useEffect(() => {
     const run = () => checkSharedTaskReminders(tasks, user?.id)
     run()
@@ -157,23 +148,8 @@ export default function GroupDetailPage() {
   }, [tasks, user?.id])
 
   useEffect(() => {
-    if (!groupId || !supabase) return
-    const ch = supabase
-      .channel(`group-${groupId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'shared_tasks', filter: `group_id=eq.${groupId}` },
-        () => scheduleLoad(),
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${groupId}` },
-        () => scheduleLoad(),
-      )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => scheduleLoad())
-      .subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [groupId, scheduleLoad])
+    if (tab === 'activity') void refreshActivity()
+  }, [tab, refreshActivity])
 
   const filtered = useMemo(() => {
     let list = tasks
@@ -188,7 +164,7 @@ export default function GroupDetailPage() {
   const handleCreate = async (payload) => {
     setSubmitting(true)
     try {
-      await createTask({
+      await createTaskOptimistic({
         ...payload,
         group_id: groupId,
         creator_id: user.id,
@@ -200,19 +176,18 @@ export default function GroupDetailPage() {
           : 'Aufgabe erstellt',
         'success',
       )
-      await load()
       setTaskFormOpen(false)
     } catch (e) {
-      toast(e.message, 'error')
+      toast(e.message || 'Aufgabe konnte nicht gespeichert werden', 'error')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleToggle = async (task) => {
+  const handleToggle = (task) => {
     const next = task.status === 'completed' ? 'open' : 'completed'
-    await updateTask(
-      task.id,
+    void updateTaskOptimistic(
+      task,
       {
         status: next,
         completed_by: next === 'completed' ? user.id : null,
@@ -222,25 +197,26 @@ export default function GroupDetailPage() {
         notifyUserId: next === 'completed' && task.creator_id !== user.id ? task.creator_id : null,
         actorId: user.id,
       },
-    )
-    await load()
+    ).catch((e) => toast(e.message || 'Aufgabe konnte nicht aktualisiert werden', 'error'))
   }
 
   const handleAssign = async (task, assigneeId) => {
-    await updateTask(task.id, { assignee_id: assigneeId }, { actorId: user.id })
-    const who = members.find((m) => m.user_id === assigneeId)
-    toast(assigneeId ? `Zugewiesen an @${who?.profile?.username}` : 'Zuweisung entfernt', 'success')
-    await load()
+    try {
+      await updateTaskOptimistic(task, { assignee_id: assigneeId }, { actorId: user.id })
+      const who = members.find((m) => m.user_id === assigneeId)
+      toast(assigneeId ? `Zugewiesen an @${who?.profile?.username}` : 'Zuweisung entfernt', 'success')
+    } catch (e) {
+      toast(e.message || 'Zuweisung fehlgeschlagen', 'error')
+    }
   }
 
   const handleDeleteTask = async () => {
     if (!deleteTaskTarget || busyAction) return
     setBusyAction('delete-task')
     try {
-      await deleteTask(deleteTaskTarget.id)
+      await deleteTaskOptimistic(deleteTaskTarget)
       toast('Aufgabe gelöscht', 'info')
       setDeleteTaskTarget(null)
-      await load()
     } catch (e) {
       toast(e.message || 'Aufgabe konnte nicht gelöscht werden', 'error')
     } finally {
@@ -257,7 +233,7 @@ export default function GroupDetailPage() {
     try {
       const result = await createGroupShoppingOptimistic(payload)
       if (result?.duplicate) {
-        toast('Dieses Produkt steht schon auf der Familienliste', 'info')
+        toast('Dieses Produkt steht schon auf der Einkaufsliste', 'info')
         return false
       }
       return true
@@ -289,10 +265,9 @@ export default function GroupDetailPage() {
     if (!removeTarget || busyAction) return
     setBusyAction('remove-member')
     try {
-      await removeMember(groupId, removeTarget.user_id)
+      await removeMemberOptimistic(removeTarget)
       toast(`@${removeTarget.profile?.username} entfernt`, 'info')
       setRemoveTarget(null)
-      await load()
     } catch (e) {
       toast(e.message, 'error')
     } finally {
@@ -304,12 +279,11 @@ export default function GroupDetailPage() {
     if (busyAction) return
     setBusyAction(`role-${member.user_id}`)
     try {
-      await setMemberRole(groupId, member.user_id, newRole)
+      await setRoleOptimistic(member, newRole)
       toast(
         `@${member.profile?.username} ist jetzt ${newRole === 'admin' ? 'Admin' : 'Mitglied'}`,
         'success',
       )
-      await load()
     } catch (e) {
       toast(e.message, 'error')
     } finally {
@@ -329,7 +303,7 @@ export default function GroupDetailPage() {
         avatar_url: groupAvatarUrl,
       })
       await refreshGroups()
-      toast('Gruppe gespeichert', 'success')
+      toast('Gespeichert', 'success')
       setManageOpen(false)
     } catch (e) {
       toast(e.message || 'Gruppe konnte nicht gespeichert werden', 'error')
@@ -359,11 +333,21 @@ export default function GroupDetailPage() {
   }
 
   if (!group) {
+    if (groupsLoading || liveLoading) {
+      return (
+        <Card className="py-8 text-center">
+          <p className="text-sm text-muted">Familie wird geladen…</p>
+        </Card>
+      )
+    }
     return (
       <Card>
-        <p className="text-muted">Gruppe nicht gefunden oder kein Zugriff.</p>
-        <Link to="/app/family" className="mt-2 inline-block text-indigo-400">
-          ← Zurück
+        <p className="font-medium text-primary">Familie nicht gefunden</p>
+        <p className="mt-1 text-sm text-muted">
+          Du hast möglicherweise keinen Zugriff mehr, oder die Familie wurde gelöscht.
+        </p>
+        <Link to="/app/family" className="mt-3 inline-block text-sm text-[var(--theme-accent)]">
+          ← Zurück zur Übersicht
         </Link>
       </Card>
     )
@@ -380,6 +364,12 @@ export default function GroupDetailPage() {
         onInvite={() => setInviteOpen(true)}
         onManage={() => setManageOpen(true)}
       />
+
+      {liveError && (
+        <p className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+          {liveError} — vorhandene Daten werden angezeigt und im Hintergrund aktualisiert.
+        </p>
+      )}
 
       <Tabs
         tabs={[
@@ -416,7 +406,7 @@ export default function GroupDetailPage() {
               </div>
               <Button type="button" size="sm" onClick={() => setTaskFormOpen(true)} className="h-8 gap-1 px-2.5 text-xs">
                 <Plus className="h-3.5 w-3.5" />
-                Neu
+                Neue Aufgabe
               </Button>
             </div>
           </div>
@@ -439,8 +429,8 @@ export default function GroupDetailPage() {
           </ul>
           {filtered.length === 0 && (
             <Card className="py-6 text-center">
-              <p className="text-sm font-medium text-primary">Nichts zu tun.</p>
-              <p className="mt-0.5 text-xs text-muted">Filter ändern oder neue Aufgabe hinzufügen.</p>
+              <p className="text-sm font-medium text-primary">Keine Aufgaben</p>
+              <p className="mt-0.5 text-xs text-muted">Tippe auf „Neue Aufgabe“, um zu starten.</p>
             </Card>
           )}
         </>
@@ -462,10 +452,9 @@ export default function GroupDetailPage() {
       {tab === 'shopping' &&
         (shoppingUnavailable ? (
           <Card>
-            <p className="font-medium text-primary">Gemeinsame Einkaufsliste noch nicht aktiviert</p>
+            <p className="font-medium text-primary">Einkaufsliste noch nicht eingerichtet</p>
             <p className="mt-2 text-sm text-muted">
-              Führe `supabase/migration_v7_group_shopping_items.sql` im Supabase SQL Editor aus, dann können alle
-              Gruppenmitglieder gemeinsam Produkte hinzufügen.
+              Bitte die Supabase-Migration für die gemeinsame Einkaufsliste ausführen.
             </p>
           </Card>
         ) : (
@@ -486,6 +475,7 @@ export default function GroupDetailPage() {
           addComment={addComment}
           fetchGroupComments={loadGroupComments}
           initialTaskId={commentsTaskId}
+          groupId={groupId}
         />
       )}
 
@@ -497,46 +487,46 @@ export default function GroupDetailPage() {
 
       <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} onInvite={handleInvite} />
 
-      <Modal open={taskFormOpen} onClose={() => !submitting && setTaskFormOpen(false)} title="Aufgabe hinzufügen">
+      <Modal open={taskFormOpen} onClose={() => !submitting && setTaskFormOpen(false)} title="Neue Aufgabe">
         <SharedTaskForm members={members} onSubmit={handleCreate} submitting={submitting} />
       </Modal>
 
-      <Modal open={manageOpen} onClose={() => setManageOpen(false)} title="Gruppe verwalten">
+      <Modal open={manageOpen} onClose={() => setManageOpen(false)} title="Familie bearbeiten">
         <form onSubmit={handleRenameGroup} className="space-y-4">
           <Input
-            label="Gruppenname"
+            label="Name"
             value={groupName}
             onChange={(e) => setGroupName(e.target.value)}
-            placeholder="Name der Gruppe"
+            placeholder="Name der Familie"
             required
           />
           <Select
-            label="Gruppenicon"
+            label="Symbol"
             value={groupIcon}
             onChange={(e) => setGroupIcon(e.target.value)}
             options={GROUP_ICONS.map((icon) => ({ value: icon.value, label: icon.label }))}
           />
           <Input
-            label="Familienbeschreibung"
+            label="Kurzbeschreibung"
             value={groupDescription}
             onChange={(e) => setGroupDescription(e.target.value)}
             placeholder="z. B. Aufgaben und Einkauf für Zuhause"
           />
           <Input
-            label="Profilbild-URL"
+            label="Bild-Link (optional)"
             value={groupAvatarUrl}
             onChange={(e) => setGroupAvatarUrl(e.target.value)}
             placeholder="https://..."
           />
-          <Button type="submit" disabled={savingGroup || !groupName.trim()} className="w-full">
-            {savingGroup ? 'Speichern…' : 'Gruppe speichern'}
+          <Button type="submit" disabled={savingGroup || !groupName.trim()} className="w-full min-h-12">
+            {savingGroup ? 'Speichern…' : 'Speichern'}
           </Button>
         </form>
 
         <div className="mt-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4">
-          <p className="font-medium text-rose-300">Gefahrenzone</p>
+          <p className="font-medium text-rose-300">Familie löschen</p>
           <p className="mt-1 text-sm text-muted">
-            Gruppe löschen entfernt sie für alle Mitglieder inklusive Aufgaben und gemeinsamer Einkaufsliste.
+            Löscht die Familie für alle Mitglieder inklusive Aufgaben und Einkaufsliste.
           </p>
           <Button
             variant="danger"
@@ -547,7 +537,7 @@ export default function GroupDetailPage() {
             }}
           >
             <Trash2 className="h-4 w-4" />
-            Gruppe löschen
+            Familie löschen
           </Button>
         </div>
       </Modal>
@@ -557,7 +547,7 @@ export default function GroupDetailPage() {
         title="Mitglied entfernen?"
         message={
           removeTarget
-            ? `@${removeTarget.profile?.username} verliert den Zugriff auf diese Gruppe.`
+            ? `@${removeTarget.profile?.username} verliert den Zugriff auf diese Familie.`
             : ''
         }
         onConfirm={handleRemove}
@@ -567,10 +557,10 @@ export default function GroupDetailPage() {
 
       <ConfirmDialog
         open={!!deleteTaskTarget}
-        title="Gruppenaufgabe löschen?"
+        title="Aufgabe löschen?"
         message={
           deleteTaskTarget
-            ? `„${deleteTaskTarget.title}“ wird für alle Gruppenmitglieder gelöscht.`
+            ? `„${deleteTaskTarget.title}“ wird für alle gelöscht.`
             : ''
         }
         confirmLabel="Löschen"
@@ -581,9 +571,9 @@ export default function GroupDetailPage() {
 
       <ConfirmDialog
         open={deleteGroupOpen}
-        title="Gruppe wirklich löschen?"
+        title="Familie wirklich löschen?"
         message={`„${group.name}“ wird für alle Mitglieder dauerhaft gelöscht.`}
-        confirmLabel="Gruppe löschen"
+        confirmLabel="Löschen"
         onConfirm={handleDeleteGroup}
         onCancel={() => setDeleteGroupOpen(false)}
         loading={busyAction === 'delete-group'}

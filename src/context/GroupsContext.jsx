@@ -182,6 +182,20 @@ export function GroupsProvider({ children }) {
       )
       .on(
         'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'groups' },
+        (payload) => {
+          if (!payload.new?.id) return
+          setGroups((prev) => {
+            const exists = prev.some((g) => g.id === payload.new.id)
+            if (!exists) return prev
+            const next = prev.map((g) => (g.id === payload.new.id ? { ...g, ...payload.new } : g))
+            setCachedGroups(userId, next)
+            return next
+          })
+        },
+      )
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
         () => refreshNotifications(),
       )

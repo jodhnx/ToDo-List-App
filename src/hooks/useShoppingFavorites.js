@@ -170,6 +170,23 @@ export function useShoppingFavorites() {
   }, [fetchFavorites])
 
   useEffect(() => {
+    if (!userId || !canReachCloud || !supabase) return
+    const channel = supabase
+      .channel(`favorites-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'favorite_products', filter: `user_id=eq.${userId}` },
+        () => {
+          void fetchFavorites()
+        },
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [userId, canReachCloud, fetchFavorites])
+
+  useEffect(() => {
     if (!userId || !hasCloud) return
     const onOnline = () => fetchFavorites()
     window.addEventListener('online', onOnline)
